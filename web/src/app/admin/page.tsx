@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { RequireAuth } from "@/components/RequireAuth";
 import type { Project, UserRow } from "@/lib/domain";
 import type { UserRole } from "@/lib/types";
+import { fetchPmAndCustomersForAdmin, setPmNameAndRole, updateProfileRole } from "@/lib/api/adminUsers";
 import Link from "next/link";
 
 /* ── Types ───────────────────────────────────────────────────────── */
@@ -147,6 +148,7 @@ function AdminInner() {
   const [pmCreateEmail, setPmCreateEmail]       = useState("");
   const [pmCreatePassword, setPmCreatePassword] = useState("");
   const [creatingPm, setCreatingPm]             = useState(false);
+  const [pmCreateSuccess, setPmCreateSuccess]   = useState<string | null>(null);
 
   const [newTemplateItemTitle, setNewTemplateItemTitle]           = useState("");
   const [newTemplateItemPercentage, setNewTemplateItemPercentage] = useState(0);
@@ -156,22 +158,28 @@ function AdminInner() {
   const [tab, setTab] = useState<"users" | "templates" | "projects">("users");
 
   async function refresh() {
-    setError(null); setLoading(true);
+    setError(null);
+    setLoading(true);
     try {
-      const [{ data: uData, error: uErr }, { data: tData }, { data: pData, error: pErr }, { data: logs, error: lErr }] =
-        await Promise.all([
-          supabase.from("users").select("*").in("role", ["pm","customer"]).order("created_at", { ascending: false }),
-          supabase.from("milestone_templates").select("*").order("created_at", { ascending: false }),
-          supabase.from("projects").select("*").order("created_at", { ascending: false }),
-          supabase.from("activity_logs").select("*").order("created_at", { ascending: false }).limit(50),
-        ]);
-      if (uErr) throw uErr;
-      if (pErr) throw pErr;
-      if (lErr) throw lErr;
-      setUsers((uData ?? []) as unknown as UserRow[]);
-      setTemplates((tData ?? []) as Template[]);
-      setProjects((pData ?? []) as Project[]);
-      setActivityLogs((logs ?? []) as Log[]);
+      const [usersResult, tRes, pRes, lRes] = await Promise.all([
+        fetchPmAndCustomersForAdmin(),
+        supabase.from("milestone_templates").select("*").order("created_at", { ascending: false }),
+        supabase.from("projects").select("*").order("created_at", { ascending: false }),
+        supabase.from("activity_logs").select("*").order("created_at", { ascending: false }).limit(50),
+      ]);
+      if (usersResult.error) throw usersResult.error;
+      if (pRes.error) throw pRes.error;
+      setUsers(usersResult.data);
+      setTemplates((tRes.data ?? []) as Template[]);
+      setProjects((pRes.data ?? []) as Project[]);
+      if (lRes.error) {
+        setActivityLogs([]);
+        setError(
+          `${lRes.error.message} — Apply supabase/migrations/0005_admin_profiles_activity_logs_rls.sql in the SQL editor so activity logs load for admins.`
+        );
+      } else {
+        setActivityLogs((lRes.data ?? []) as Log[]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load admin data");
     } finally {
@@ -188,8 +196,8 @@ function AdminInner() {
       .then(({ data }) => setTemplateItems((data ?? []) as TemplateItem[]));
   }, [templateId]);
 
-  const customers = users.filter(u => u.role === "customer");
-  const pms       = users.filter(u => u.role === "pm");
+  const customers = users.filter((u) => (u.role ?? "").toLowerCase() === "customer");
+  const pms       = users.filter((u) => (u.role ?? "").toLowerCase() === "pm");
 
   /* ── Tabs ── */
   const TABS = [
@@ -289,10 +297,10 @@ function AdminInner() {
                             <p className="text-[11px] text-slate-400 truncate mt-0.5">{u.id}</p>
                           </div>
                           <select
-                            value={u.role}
+                            value={(u.role ?? "").toLowerCase() === "pm" ? "pm" : "customer"}
                             onChange={async e => {
                               const newRole = e.target.value as UserRole;
-                              const { error: rErr } = await supabase.from("users").update({ role: newRole }).eq("id", u.id);
+                              const { error: rErr } = await updateProfileRole(u.id, newRole);
                               if (rErr) { setError(rErr.message); return; }
                               setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x));
                             }}
@@ -308,7 +316,10 @@ function AdminInner() {
                   )}
                 </SectionCard>
 
-                <SectionCard title="Create PM Account" description="Provision a new PM with email + password">
+                <SectionCard
+                  title="Create PM Account"
+                  description="Uses Supabase Auth (sign-up). In DevTools → Network, look for auth/v1/signup — not rest/v1."
+                >
                   <form
                     className="space-y-3"
                     onSubmit={async e => {
@@ -321,21 +332,37 @@ function AdminInner() {
                         setError("Cannot create PM using admin@prestoliv.com.");
                         return;
                       }
-                      setError(null); setCreatingPm(true);
+                      setError(null);
+                      setPmCreateSuccess(null);
+                      setCreatingPm(true);
                       try {
                         const { data: sd, error: sErr } = await supabase.auth.signUp({
-                          email, password: pwd, options: { data: { name: name || email } },
+                          email,
+                          password: pwd,
+                          options: { data: { name: name || email } },
                         });
                         if (sErr) throw sErr;
                         const uid = sd.user?.id;
-                        if (!uid) throw new Error("No user id returned.");
-                        const { error: rErr } = await supabase.from("users").update({ role: "pm", name: name || email }).eq("id", uid);
+                        if (!uid) {
+                          setPmCreateSuccess(
+                            "Sign-up completed without a user id in the response (common when email confirmation is required). " +
+                              "Confirm the email if prompted, then refresh this page — or run the SQL migration so admins can see all profiles. " +
+                              "If the email is already registered, use a different address or reset password."
+                          );
+                          return;
+                        }
+                        const { error: rErr } = await setPmNameAndRole(uid, name || email);
                         if (rErr) throw rErr;
-                        setPmCreateEmail(""); setPmCreatePassword(""); setPmCreateName("");
+                        setPmCreateEmail("");
+                        setPmCreatePassword("");
+                        setPmCreateName("");
+                        setPmCreateSuccess("PM account created and role set.");
                         await refresh();
                       } catch (e2) {
                         setError(e2 instanceof Error ? e2.message : "Failed to create PM");
-                      } finally { setCreatingPm(false); }
+                      } finally {
+                        setCreatingPm(false);
+                      }
                     }}
                   >
                     <div>
@@ -353,7 +380,12 @@ function AdminInner() {
                       <input type="password" value={pmCreatePassword} onChange={e => setPmCreatePassword(e.target.value)}
                         className={inputCls} placeholder="Minimum 6 characters" required />
                     </div>
-                    <PrimaryButton disabled={creatingPm || !pmCreateEmail.trim() || !pmCreatePassword}>
+                    {pmCreateSuccess ? (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                        {pmCreateSuccess}
+                      </div>
+                    ) : null}
+                    <PrimaryButton type="submit" disabled={creatingPm || !pmCreateEmail.trim() || !pmCreatePassword}>
                       {creatingPm ? "Creating…" : "Create PM"}
                     </PrimaryButton>
                   </form>
