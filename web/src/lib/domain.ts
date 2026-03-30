@@ -6,6 +6,8 @@ export type Project = {
   id: string;
   name: string;
   customer_id: string;
+  /** Same as customer_id when DB uses a separate FK column (e.g. projects_client_id_fkey). */
+  client_id?: string;
   pm_id: string | null;
   status: ProjectStatus;
 };

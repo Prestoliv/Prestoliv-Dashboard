@@ -22,6 +22,7 @@ export async function createProject(input: {
     .insert({
       name: input.name,
       customer_id: input.customerId,
+      client_id: input.customerId,
       pm_id: input.pmId,
       status: input.status,
     })

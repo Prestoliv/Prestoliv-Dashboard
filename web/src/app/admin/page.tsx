@@ -513,8 +513,15 @@ function AdminInner() {
                     try {
                       const { data: created, error: pErr } = await supabase
                         .from("projects")
-                        .insert({ name: projectName.trim(), customer_id: customerId, pm_id: pmId, status })
-                        .select("*").single();
+                        .insert({
+                          name: projectName.trim(),
+                          customer_id: customerId,
+                          client_id: customerId,
+                          pm_id: pmId,
+                          status,
+                        })
+                        .select("*")
+                        .single();
                       if (pErr) throw pErr;
                       const project = created as Project;
                       if (templateId) {
