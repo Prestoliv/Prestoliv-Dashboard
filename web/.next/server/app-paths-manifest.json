@@ -1,8 +1,8 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/admin/page": "app/admin/page.js",
-  "/login/page": "app/login/page.js",
   "/queries/page": "app/queries/page.js",
-  "/projects/[id]/page": "app/projects/[id]/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/admin/page": "app/admin/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/login/page": "app/login/page.js",
+  "/api-docs/page": "app/api-docs/page.js",
+  "/api-docs/spec/route": "app/api-docs/spec/route.js"
 }
