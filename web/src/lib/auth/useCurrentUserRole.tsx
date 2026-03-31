@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import type { UserRole } from "@/lib/types";
 
@@ -12,25 +13,24 @@ export function useCurrentUserRole() {
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        if (!mounted) return;
 
-        if (!data.user) {
+    async function loadFromSession(session: Session | null) {
+      if (!mounted) return;
+      setLoading(true);
+      try {
+        if (!session?.user) {
           setUserId(null);
           setRole(null);
           setName(null);
           return;
         }
 
-        setUserId(data.user.id);
+        setUserId(session.user.id);
 
         const { data: row, error: roleError } = await supabase
           .from("users")
           .select("role,name")
-          .eq("id", data.user.id)
+          .eq("id", session.user.id)
           .single();
         if (roleError) throw roleError;
         if (!mounted) return;
@@ -42,10 +42,17 @@ export function useCurrentUserRole() {
       } finally {
         if (mounted) setLoading(false);
       }
-    })();
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      void loadFromSession(session);
+    });
 
     return () => {
       mounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 

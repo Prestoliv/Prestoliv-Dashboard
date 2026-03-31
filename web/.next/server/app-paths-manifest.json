@@ -1,8 +1,7 @@
 {
-  "/queries/page": "app/queries/page.js",
-  "/admin/page": "app/admin/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/login/page": "app/login/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/queries/page": "app/queries/page.js",
   "/api-docs/page": "app/api-docs/page.js",
   "/api-docs/spec/route": "app/api-docs/spec/route.js"
 }

@@ -1,4 +1,4 @@
-// File: /Users/devanshsaxena/Desktop/prestoliv/web/src/app/queries/page.tsx
+// File: /Users/admin/Desktop/prestoliv/web/src/app/queries/page.tsx
 import * as entry from '../../../../src/app/queries/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
