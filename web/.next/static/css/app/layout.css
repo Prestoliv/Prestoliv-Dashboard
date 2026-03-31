@@ -770,6 +770,9 @@ video {
 .min-h-screen {
   min-height: 100vh;
 }
+.min-h-\[520px\] {
+  min-height: 520px;
+}
 .w-0 {
   width: 0px;
 }
