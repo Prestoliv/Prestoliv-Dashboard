@@ -4,15 +4,13 @@ services:
     name: prestoliv
     env: node
     rootDir: web
-    buildCommand: "npm install && npm run build"
-    startCommand: "npm start"
+    buildCommand: "npm ci && npm run build"
+    startCommand: "npx next start -p $PORT"
     healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
-      - fromEnvFile:
-          key: NEXT_PUBLIC_SUPABASE_URL
-          path: ./.env
-      - fromEnvFile:
-          key: NEXT_PUBLIC_SUPABASE_ANON_KEY
-          path: ./.env
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
