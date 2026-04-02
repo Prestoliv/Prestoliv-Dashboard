@@ -1,0 +1,686 @@
+openapi: 3.1.0
+info:
+  title: Prestoliv Supabase API
+  version: 1.0.0
+  description: |
+    OpenAPI documentation for the Prestoliv backend as used by the current web app.
+    This API is exposed through Supabase PostgREST (`/rest/v1`) and Supabase Auth (`/auth/v1`).
+
+    Notes:
+    - Most list endpoints support standard PostgREST query params such as `select`, `order`, `limit`, `offset`, and column filters.
+    - Row Level Security (RLS) policies still control visibility and write access.
+servers:
+  - url: https://leohxwfdfqrjxdgbeutk.supabase.co
+    description: Supabase project
+    variables:
+      projectRef:
+        default: leohxwfdfqrjxdgbeutk
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: Users
+  - name: Projects
+  - name: Milestones
+  - name: Updates
+  - name: Media
+  - name: Queries
+  - name: Query Replies
+  - name: Milestone Templates
+  - name: Activity Logs
+paths:
+  /auth/v1/signup:
+    post:
+      tags: [Auth]
+      summary: Sign up user
+      description: Creates a Supabase auth user. Used by admin flow to create PM users.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                data:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: User created or signup accepted
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+
+  /rest/v1/users:
+    get:
+      tags: [Users]
+      summary: List users
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - $ref: "#/components/parameters/order"
+        - name: role
+          in: query
+          schema:
+            type: string
+          description: PostgREST filter, e.g. `in.(pm,customer)`
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      tags: [Users]
+      summary: Insert user row
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserWrite"
+      responses:
+        "201":
+          description: Created
+    patch:
+      tags: [Users]
+      summary: Update user rows
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: PostgREST filter. Example `eq.<uuid>`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                role:
+                  $ref: "#/components/schemas/UserRole"
+      responses:
+        "204":
+          description: Updated
+
+  /rest/v1/projects:
+    get:
+      tags: [Projects]
+      summary: List projects
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - $ref: "#/components/parameters/order"
+        - name: id
+          in: query
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+        - name: customer_id
+          in: query
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+        - name: pm_id
+          in: query
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      tags: [Projects]
+      summary: Create project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectWrite"
+      responses:
+        "201":
+          description: Created
+
+  /rest/v1/milestones:
+    get:
+      tags: [Milestones]
+      summary: List milestones
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - $ref: "#/components/parameters/order"
+        - name: project_id
+          in: query
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>` or `in.(...)`
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Milestone"
+    post:
+      tags: [Milestones]
+      summary: Create milestone(s)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/MilestoneWrite"
+                - type: array
+                  items:
+                    $ref: "#/components/schemas/MilestoneWrite"
+      responses:
+        "201":
+          description: Created
+    patch:
+      tags: [Milestones]
+      summary: Update milestone(s)
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                percentage:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+      responses:
+        "204":
+          description: Updated
+
+  /rest/v1/updates:
+    get:
+      tags: [Updates]
+      summary: List updates
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - $ref: "#/components/parameters/order"
+        - name: project_id
+          in: query
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Update"
+    post:
+      tags: [Updates]
+      summary: Create update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWrite"
+      responses:
+        "201":
+          description: Created
+
+  /rest/v1/media:
+    get:
+      tags: [Media]
+      summary: List media
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - name: project_id
+          in: query
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Media"
+    post:
+      tags: [Media]
+      summary: Create media metadata row
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MediaWrite"
+      responses:
+        "201":
+          description: Created
+
+  /rest/v1/queries:
+    get:
+      tags: [Queries]
+      summary: List queries
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - $ref: "#/components/parameters/order"
+        - name: project_id
+          in: query
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Query"
+        "404":
+          description: Missing table in schema cache (`PGRST205`)
+    post:
+      tags: [Queries]
+      summary: Create query/ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryWrite"
+      responses:
+        "201":
+          description: Created
+    patch:
+      tags: [Queries]
+      summary: Update query status
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: "#/components/schemas/QueryStatus"
+      responses:
+        "204":
+          description: Updated
+
+  /rest/v1/query_replies:
+    get:
+      tags: [Query Replies]
+      summary: List query replies
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - $ref: "#/components/parameters/order"
+        - name: query_id
+          in: query
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QueryReply"
+        "404":
+          description: Missing table in schema cache (`PGRST205`)
+    post:
+      tags: [Query Replies]
+      summary: Create query reply
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryReplyWrite"
+      responses:
+        "201":
+          description: Created
+
+  /rest/v1/milestone_templates:
+    get:
+      tags: [Milestone Templates]
+      summary: List milestone templates
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - $ref: "#/components/parameters/order"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MilestoneTemplate"
+        "404":
+          description: Missing table in schema cache (`PGRST205`)
+    post:
+      tags: [Milestone Templates]
+      summary: Create milestone template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MilestoneTemplateWrite"
+      responses:
+        "201":
+          description: Created
+
+  /rest/v1/milestone_template_items:
+    get:
+      tags: [Milestone Templates]
+      summary: List milestone template items
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - $ref: "#/components/parameters/order"
+        - name: template_id
+          in: query
+          schema: { type: string }
+          description: PostgREST filter, e.g. `eq.<uuid>`
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MilestoneTemplateItem"
+    post:
+      tags: [Milestone Templates]
+      summary: Create milestone template item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MilestoneTemplateItemWrite"
+      responses:
+        "201":
+          description: Created
+
+  /rest/v1/activity_logs:
+    get:
+      tags: [Activity Logs]
+      summary: List activity logs
+      parameters:
+        - $ref: "#/components/parameters/select"
+        - $ref: "#/components/parameters/order"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityLog"
+        "404":
+          description: Missing table in schema cache (`PGRST205`)
+    post:
+      tags: [Activity Logs]
+      summary: Create activity log row
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityLogWrite"
+      responses:
+        "201":
+          description: Created
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Supabase access token (`Authorization: Bearer <access_token>`)."
+
+  parameters:
+    select:
+      name: select
+      in: query
+      schema:
+        type: string
+        default: "*"
+      description: PostgREST select expression.
+    order:
+      name: order
+      in: query
+      schema:
+        type: string
+        example: created_at.desc
+      description: |
+        PostgREST order expression.
+        Example: `created_at.desc`, `id.asc`.
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+      description: Maximum number of rows.
+
+  schemas:
+    UserRole:
+      type: string
+      enum: [admin, pm, customer, visitor]
+    ProjectStatus:
+      type: string
+      enum: [active, completed, on_hold, cancelled]
+    MediaType:
+      type: string
+      enum: [image, video]
+    QueryStatus:
+      type: string
+      enum: [open, closed]
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, nullable: true }
+        role: { $ref: "#/components/schemas/UserRole" }
+        created_at: { type: string, format: date-time }
+      required: [id, role]
+    UserWrite:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, nullable: true }
+        role: { $ref: "#/components/schemas/UserRole" }
+
+    Project:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        customer_id: { type: string, format: uuid }
+        pm_id: { type: string, format: uuid, nullable: true }
+        status: { $ref: "#/components/schemas/ProjectStatus" }
+        created_at: { type: string, format: date-time }
+      required: [id, name, customer_id, status]
+    ProjectWrite:
+      type: object
+      required: [name, customer_id, pm_id, status]
+      properties:
+        name: { type: string }
+        customer_id: { type: string, format: uuid }
+        pm_id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/ProjectStatus" }
+
+    Milestone:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        title: { type: string }
+        percentage: { type: integer, minimum: 0, maximum: 100 }
+        created_at: { type: string, format: date-time }
+      required: [id, project_id, title, percentage]
+    MilestoneWrite:
+      type: object
+      required: [project_id, title, percentage]
+      properties:
+        project_id: { type: string, format: uuid }
+        title: { type: string }
+        percentage: { type: integer, minimum: 0, maximum: 100 }
+
+    Update:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        created_by: { type: string, format: uuid }
+        text: { type: string }
+        created_at: { type: string, format: date-time }
+      required: [id, project_id, created_by, text, created_at]
+    UpdateWrite:
+      type: object
+      required: [project_id, created_by, text]
+      properties:
+        project_id: { type: string, format: uuid }
+        created_by: { type: string, format: uuid }
+        text: { type: string }
+
+    Media:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        update_id: { type: string, format: uuid, nullable: true }
+        url: { type: string }
+        type: { $ref: "#/components/schemas/MediaType" }
+        created_at: { type: string, format: date-time }
+      required: [id, project_id, url, type]
+    MediaWrite:
+      type: object
+      required: [project_id, update_id, url, type]
+      properties:
+        project_id: { type: string, format: uuid }
+        update_id: { type: string, format: uuid }
+        url: { type: string }
+        type: { $ref: "#/components/schemas/MediaType" }
+
+    Query:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        created_by: { type: string, format: uuid }
+        message: { type: string }
+        status: { $ref: "#/components/schemas/QueryStatus" }
+        created_at: { type: string, format: date-time }
+      required: [id, project_id, created_by, message, status, created_at]
+    QueryWrite:
+      type: object
+      required: [project_id, created_by, message, status]
+      properties:
+        project_id: { type: string, format: uuid }
+        created_by: { type: string, format: uuid }
+        message: { type: string }
+        status: { $ref: "#/components/schemas/QueryStatus" }
+
+    QueryReply:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        query_id: { type: string, format: uuid }
+        sender_id: { type: string, format: uuid }
+        message: { type: string }
+        created_at: { type: string, format: date-time }
+      required: [id, query_id, sender_id, message, created_at]
+    QueryReplyWrite:
+      type: object
+      required: [query_id, sender_id, message]
+      properties:
+        query_id: { type: string, format: uuid }
+        sender_id: { type: string, format: uuid }
+        message: { type: string }
+
+    MilestoneTemplate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+      required: [id, name]
+    MilestoneTemplateWrite:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+
+    MilestoneTemplateItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        template_id: { type: string, format: uuid }
+        title: { type: string }
+        percentage: { type: integer, minimum: 0, maximum: 100 }
+        created_at: { type: string, format: date-time }
+      required: [id, template_id, title, percentage]
+    MilestoneTemplateItemWrite:
+      type: object
+      required: [template_id, title, percentage]
+      properties:
+        template_id: { type: string, format: uuid }
+        title: { type: string }
+        percentage: { type: integer, minimum: 0, maximum: 100 }
+
+    ActivityLog:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        action: { type: string }
+        created_at: { type: string, format: date-time }
+      required: [id, user_id, action, created_at]
+    ActivityLogWrite:
+      type: object
+      required: [user_id, action]
+      properties:
+        user_id: { type: string, format: uuid }
+        action: { type: string }

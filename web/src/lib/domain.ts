@@ -1,0 +1,66 @@
+import type { MediaType, QueryStatus, UserRole } from "./types";
+
+export type ProjectStatus = "active" | "completed" | "on_hold" | "cancelled";
+
+export type Project = {
+  id: string;
+  name: string;
+  customer_id: string;
+  /** Same as customer_id when DB uses a separate FK column (e.g. projects_client_id_fkey). */
+  client_id?: string;
+  pm_id: string | null;
+  status: ProjectStatus;
+};
+
+export type Milestone = {
+  id: string;
+  project_id: string;
+  title: string;
+  percentage: number; // 0-100
+};
+
+export type Update = {
+  id: string;
+  project_id: string;
+  created_by: string;
+  text: string;
+  created_at: string;
+};
+
+export type Media = {
+  id: string;
+  project_id: string;
+  update_id: string | null;
+  url: string; // storage object name/path
+  type: MediaType;
+  /** Storage/object created time (used for lightbox metadata). */
+  created_at?: string;
+};
+
+export type Query = {
+  id: string;
+  project_id: string;
+  created_by: string;
+  message: string;
+  status: QueryStatus;
+  created_at: string;
+  /** When the customer last opened this thread (read cursor). */
+  last_read_customer_at?: string | null;
+  /** When PM/admin last opened this thread (read cursor). */
+  last_read_team_at?: string | null;
+};
+
+export type QueryReply = {
+  id: string;
+  query_id: string;
+  sender_id: string;
+  message: string;
+  created_at: string;
+};
+
+export type UserRow = {
+  id: string;
+  name: string | null;
+  role: UserRole;
+};
+
