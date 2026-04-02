@@ -255,7 +255,7 @@ function SupportDialog({
                     "",
                     screenshotUrl.trim() ? `Screenshot: ${screenshotUrl.trim()}` : "",
                   ];
-                  const mailto = `mailto:devanshsaxena1019@gmail.com?subject=${encodeURIComponent(
+                  const mailto = `mailto:shravya@dzynd.co?subject=${encodeURIComponent(
                     "Prestoliv support request"
                   )}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
                   window.location.href = mailto;
