@@ -1,10 +1,4 @@
 {
-  "/projects/[id]/page": "app/projects/[id]/page.js",
-  "/api/media/signed-urls/route": "app/api/media/signed-urls/route.js",
-  "/at/profile/page": "app/at/profile/page.js",
-  "/api/at/bundle/route": "app/api/at/bundle/route.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/api/projects/upload-project-media/route": "app/api/projects/upload-project-media/route.js",
-  "/admin/page": "app/admin/page.js",
-  "/queries/page": "app/queries/page.js"
+  "/page": "app/page.js",
+  "/login/page": "app/login/page.js"
 }

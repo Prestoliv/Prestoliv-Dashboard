@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { SidebarNav } from "./SidebarNav";
 import { FloatingProjectsChatWidget } from "./FloatingProjectsChatWidget";
@@ -42,12 +43,15 @@ const IconLogout = () => (
 );
 
 const LogoMark = () => (
-  <div className="h-7 w-7 rounded-xl flex items-center justify-center flex-shrink-0"
-    style={{ background: "linear-gradient(135deg,#0891b2,#0d9488)", boxShadow: "0 2px 8px rgba(8,145,178,.3)" }}>
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <path d="M2 6h2.5M7.5 6H10M6 2v2.5M6 7.5V10" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
-      <circle cx="6" cy="6" r="1.4" fill="white"/>
-    </svg>
+  <div className="h-7 w-7 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+    <Image
+      src="/logo.png"
+      alt="Prestoliv logo"
+      width={28}
+      height={28}
+      className="object-contain"
+      priority
+    />
   </div>
 );
 
