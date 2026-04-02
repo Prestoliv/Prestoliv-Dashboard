@@ -59,6 +59,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function TokenCustomerProfilePage() {
   const [uid, setUid] = useState("");
+  const atSecret = process.env.NEXT_PUBLIC_AT_SHARED_SECRET ?? "";
   const [bootstrapped, setBootstrapped] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -121,6 +122,7 @@ export default function TokenCustomerProfilePage() {
     try {
       const url = new URL("/api/at/bundle", window.location.origin);
       url.searchParams.set("uid", targetUid);
+      if (atSecret) url.searchParams.set("secret", atSecret);
       const res = await fetch(url.toString());
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Failed to load");
@@ -181,7 +183,10 @@ export default function TokenCustomerProfilePage() {
     const ping = () => {
       void fetch("/api/at/read", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(atSecret ? { "x-at-secret": atSecret } : {}),
+        },
         body: JSON.stringify({ uid: u, queryId: qid }),
       })
         .then((res) => res.json())
@@ -212,6 +217,7 @@ export default function TokenCustomerProfilePage() {
       try {
         const url = new URL("/api/at/bundle", window.location.origin);
         url.searchParams.set("uid", u);
+        if (atSecret) url.searchParams.set("secret", atSecret);
         const res = await fetch(url.toString(), { cache: "no-store" });
         if (!res.ok) return;
         const json = await res.json();
@@ -281,7 +287,10 @@ export default function TokenCustomerProfilePage() {
     try {
       const res = await fetch("/api/at/reply", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(atSecret ? { "x-at-secret": atSecret } : {}),
+        },
         body: JSON.stringify({ uid: u, queryId: selectedQuery.id, message: text }),
       });
       const json = await res.json();
