@@ -9,10 +9,13 @@ export function ProjectSideDrawer({
   projectId,
   open,
   onClose,
+  readOnly = false,
 }: {
   projectId: string | null;
   open: boolean;
   onClose: () => void;
+  /** Portal mode: view-only (no "open full page", no edit/create actions). */
+  readOnly?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -65,12 +68,14 @@ export function ProjectSideDrawer({
         <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-slate-200/70 bg-white/95 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Project</p>
           <div className="flex items-center gap-2">
-            <Link
-              href={`/projects/${projectId}`}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50"
-            >
-              Open full page
-            </Link>
+            {!readOnly && (
+              <Link
+                href={`/projects/${projectId}`}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold text-teal-700 hover:bg-teal-50"
+              >
+                Open full page
+              </Link>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -85,7 +90,12 @@ export function ProjectSideDrawer({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <ProjectDetailView key={projectId} projectId={projectId} variant="drawer" />
+          <ProjectDetailView
+            key={projectId}
+            projectId={projectId}
+            variant="drawer"
+            readOnly={readOnly}
+          />
         </div>
       </div>
     </div>,

@@ -1,8 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import type { Project, Query, QueryReply } from "@/lib/domain";
+import {
+  httpBroadcastQueryThread,
+  subscribeQueryThreadBroadcast,
+} from "@/lib/realtime/queryThreadRealtime";
 import { RequireAuth } from "@/components/RequireAuth";
 import { QueryThreadUI } from "@/components/QueryThreadUI";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
@@ -334,6 +338,9 @@ function QueriesInner() {
   const [queryFeatureUnavailable, setQueryFeatureUnavailable] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"open" | "closed" | "all">("open");
   const [search, setSearch]       = useState("");
+  const [peerTyping, setPeerTyping] = useState(false);
+  const typingThrottleRef = useRef(0);
+  const lastRealtimeReplyAtRef = useRef(0);
 
   const canReply       = role === "pm" || role === "admin";
   const canClose       = role === "pm" || role === "admin";
@@ -422,6 +429,7 @@ function QueriesInner() {
           throw rErr;
         }
         setReplies((data ?? []) as QueryReply[]);
+        lastRealtimeReplyAtRef.current = Date.now();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load replies");
       } finally { setLoadingThread(false); }
@@ -436,6 +444,7 @@ function QueriesInner() {
         (payload: any) => {
           const row = payload.new as QueryReply;
           if (!row?.id) return;
+          lastRealtimeReplyAtRef.current = Date.now();
           setReplies(prev => prev.some(r => r.id === row.id) ? prev :
             [...prev, row].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
         })
@@ -463,6 +472,135 @@ function QueriesInner() {
     () => queries.find(q => q.id === selectedId) ?? null,
     [queries, selectedId]
   );
+
+  const lastReadByPeerAt = useMemo(() => {
+    if (!selectedQuery) return null;
+    if (role === "customer") return selectedQuery.last_read_team_at ?? null;
+    return selectedQuery.last_read_customer_at ?? null;
+  }, [selectedQuery, role]);
+
+  const peerTypingLabel = role === "customer" ? "Support" : "Customer";
+
+  /* ── Mark thread read (RPC) + broadcast for portal ── */
+  useEffect(() => {
+    if (!selectedId || !userId || !role) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        if (role === "pm" || role === "admin") {
+          await supabase.rpc("mark_query_read_team", { p_query_id: selectedId });
+        } else if (role === "customer") {
+          await supabase.rpc("mark_query_read_customer", { p_query_id: selectedId });
+        } else return;
+        const { data } = await supabase
+          .from("queries")
+          .select("last_read_customer_at, last_read_team_at")
+          .eq("id", selectedId)
+          .single();
+        if (cancelled || !data) return;
+        setQueries((prev) => prev.map((q) => (q.id === selectedId ? { ...q, ...data } : q)));
+        try {
+          await httpBroadcastQueryThread(supabase, selectedId, "read", data as Record<string, unknown>);
+        } catch { /* best-effort */ }
+      } catch { /* ignore */ }
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [selectedId, userId, role]);
+
+  /* ── Realtime: query row updates (read receipts from other clients) ── */
+  useEffect(() => {
+    if (!selectedId || !userId) return;
+    const ch = supabase
+      .channel(`queries-up:${selectedId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "queries",
+          filter: `id=eq.${selectedId}`,
+        },
+        (payload: { new: Query }) => {
+          const row = payload.new;
+          setQueries((prev) => prev.map((q) => (q.id === row.id ? { ...q, ...row } : q)));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [selectedId, userId]);
+
+  /* ── Broadcast: typing + read (portal sends read/typing) ── */
+  useEffect(() => {
+    if (!selectedId || !userId) return;
+    const off = subscribeQueryThreadBroadcast(supabase, selectedId, {
+      onReply: (reply) => {
+        if (reply.query_id !== selectedId) return;
+        lastRealtimeReplyAtRef.current = Date.now();
+        setReplies((prev) =>
+          prev.some((r) => r.id === reply.id)
+            ? prev
+            : [...prev, reply].sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              )
+        );
+      },
+      onRead: (p) => {
+        setQueries((prev) =>
+          prev.map((q) => (q.id === selectedId ? { ...q, ...p } : q))
+        );
+      },
+      onTyping: (p) => {
+        if (p.userId === userId) return;
+        setPeerTyping(p.typing);
+      },
+    });
+    return off;
+  }, [selectedId, userId]);
+
+  useEffect(() => {
+    setPeerTyping(false);
+  }, [selectedId]);
+
+  /* Fallback: if realtime/broadcast is flaky, poll replies every ~10s. */
+  useEffect(() => {
+    if (!selectedId || !userId) return;
+    const iv = window.setInterval(async () => {
+      if (Date.now() - lastRealtimeReplyAtRef.current < 8_000) return;
+      try {
+        const { data, error: rErr } = await supabase
+          .from("query_replies")
+          .select("*")
+          .eq("query_id", selectedId)
+          .order("created_at", { ascending: true });
+        if (rErr) {
+          setError(rErr.message);
+          return;
+        }
+        const incoming = (data ?? []) as QueryReply[];
+        setReplies(incoming);
+        // If we got here without a recent realtime event, treat it as a fresh sync.
+        lastRealtimeReplyAtRef.current = Date.now();
+      } catch {
+        // best-effort
+      }
+    }, 10_000);
+    return () => window.clearInterval(iv);
+  }, [selectedId, userId]);
+
+  async function emitDashboardTyping(active: boolean) {
+    if (!selectedId || !userId) return;
+    const now = Date.now();
+    if (active && now - typingThrottleRef.current < 400) return;
+    typingThrottleRef.current = now;
+    try {
+      await httpBroadcastQueryThread(supabase, selectedId, "typing", { userId, typing: active });
+    } catch { /* ignore */ }
+  }
 
   /* ─── FILTER TABS ─── */
   const TABS: { key: "open" | "closed" | "all"; label: string; count?: number }[] = [
@@ -638,14 +776,32 @@ function QueriesInner() {
                     senderId={userId ?? ""}
                     canReply={canReply}
                     canClose={canClose}
+                    lastReadByPeerAt={lastReadByPeerAt}
+                    peerIsTyping={peerTyping}
+                    peerTypingLabel={peerTypingLabel}
+                    onTypingActivity={emitDashboardTyping}
                     onSendReply={async (message) => {
                       if (!userId) return;
-                      const { error: insErr } = await supabase.from("query_replies")
-                        .insert({ query_id: selectedQuery.id, sender_id: userId, message });
+                      const { data: newReply, error: insErr } = await supabase.from("query_replies")
+                        .insert({ query_id: selectedQuery.id, sender_id: userId, message })
+                        .select("*")
+                        .single();
                       if (insErr) throw insErr;
-                      const { data } = await supabase.from("query_replies")
-                        .select("*").eq("query_id", selectedQuery.id).order("created_at", { ascending: true });
-                      setReplies((data ?? []) as QueryReply[]);
+                      if (newReply) {
+                        setReplies((prev) =>
+                          prev.some((r) => r.id === newReply.id)
+                            ? prev
+                            : [...prev, newReply].sort(
+                                (a, b) =>
+                                  new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                              )
+                        );
+                        try {
+                          await httpBroadcastQueryThread(supabase, selectedQuery.id, "reply", {
+                            reply: newReply,
+                          });
+                        } catch { /* ignore */ }
+                      }
                     }}
                     onClose={async () => {
                       const { error: upErr } = await supabase.from("queries")

@@ -344,8 +344,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [signOutBusy, setSignOutBusy]     = useState(false);
   const [supportOpen, setSupportOpen]     = useState(false);
 
-  /* Skip shell on login/api-docs pages */
-  if (pathname?.startsWith("/login") || pathname?.startsWith("/api-docs")) {
+  /* Standalone routes: no sidebar, no app chrome (embed / public links) */
+  if (
+    pathname?.startsWith("/login") ||
+    pathname?.startsWith("/api-docs") ||
+    pathname?.startsWith("/at")
+  ) {
     return <>{children}</>;
   }
 

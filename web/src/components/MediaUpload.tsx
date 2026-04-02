@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from "react";
-import { supabase, projectMediaBucket } from "@/lib/supabase/client";
+import { useState } from "react";
+import { supabase } from "@/lib/supabase/client";
 import type { MediaType } from "@/lib/types";
 import type { Media } from "@/lib/domain";
 
@@ -24,8 +24,6 @@ export function MediaUpload({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const bucket = useMemo(() => projectMediaBucket(), []);
-
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="font-semibold text-slate-900">Add media (optional)</div>
@@ -45,35 +43,24 @@ export function MediaUpload({
             setError(null);
             setUploading(true);
             try {
-              const uploaded: Media[] = [];
-              for (const file of files) {
-                const type = detectMediaType(file);
-                const fileName = file.name.replace(/\s+/g, "_");
-                const path = `projects/${projectId}/updates/${updateId}/${Date.now()}_${fileName}`;
+              const sessionRes = await supabase.auth.getSession();
+              const accessToken = sessionRes.data.session?.access_token;
+              if (!accessToken) throw new Error("Not authenticated");
 
-                const { error: uploadError } = await supabase.storage
-                  .from(bucket)
-                  .upload(path, file, {
-                    contentType: file.type || undefined,
-                    upsert: false,
-                  });
-                if (uploadError) throw uploadError;
+              const form = new FormData();
+              form.set("projectId", projectId);
+              form.set("updateId", updateId);
+              for (const file of files) form.append("files", file);
 
-                const { data: inserted, error: insertError } = await supabase
-                  .from("media")
-                  .insert({
-                    project_id: projectId,
-                    update_id: updateId,
-                    url: path,
-                    type,
-                  })
-                  .select("*")
-                  .single();
+              const res = await fetch("/api/projects/upload-media", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${accessToken}` },
+                body: form,
+              });
+              const json = await res.json();
+              if (!res.ok) throw new Error(json?.error ?? "Upload failed");
 
-                if (insertError) throw insertError;
-                uploaded.push(inserted as unknown as Media);
-              }
-
+              const uploaded = (json?.media ?? []) as Media[];
               onUploaded?.(uploaded);
             } catch (err) {
               setError(err instanceof Error ? err.message : "Upload failed");

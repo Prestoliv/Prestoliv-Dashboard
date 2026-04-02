@@ -9,6 +9,7 @@ import { MediaUpload } from "@/components/MediaUpload";
 import { QueryThreadUI } from "@/components/QueryThreadUI";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
 import { isMissingTableError } from "@/lib/supabase/errors";
+import { httpBroadcastQueryThread } from "@/lib/realtime/queryThreadRealtime";
 
 /* ── Shared primitives ──────────────────────────────────────────── */
 
@@ -169,16 +170,18 @@ export type ProjectDetailVariant = "page" | "drawer";
 export function ProjectDetailView({
   projectId,
   variant = "page",
+  readOnly = false,
 }: {
   projectId: string;
   variant?: ProjectDetailVariant;
+  readOnly?: boolean;
 }) {
 
   const { loading, userId, role } = useCurrentUserRole();
 
-  const canWrite = role === "pm" || role === "admin";
-  const canReply = role === "pm" || role === "admin";
-  const canClose = role === "pm" || role === "admin";
+  const canWrite = !readOnly && (role === "pm" || role === "admin");
+  const canReply = !readOnly && (role === "pm" || role === "admin");
+  const canClose = !readOnly && (role === "pm" || role === "admin");
 
   const [project, setProject] = useState<Project | null>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -198,6 +201,9 @@ export function ProjectDetailView({
   const [newQueryMessage, setNewQueryMessage] = useState("");
   const [creatingQuery, setCreatingQuery] = useState(false);
   const [queryFeatureUnavailable, setQueryFeatureUnavailable] = useState(false);
+
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
 
   async function refreshAll() {
     if (!projectId) return;
@@ -295,6 +301,16 @@ export function ProjectDetailView({
       .channel(`project:${projectId}:realtime`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "updates", filter: `project_id=eq.${projectId}` }, () => refreshAll())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "queries", filter: `project_id=eq.${projectId}` }, () => refreshAll())
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "media", filter: `project_id=eq.${projectId}` },
+        () => refreshAll()
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "media", filter: `project_id=eq.${projectId}` },
+        () => refreshAll()
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -377,7 +393,7 @@ export function ProjectDetailView({
 
         {/* ── PM write area ── */}
         {canWrite && (
-          <div className={`grid gap-5 ${isDrawer ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
+          <div className={`grid gap-5 ${isDrawer ? "grid-cols-1" : "lg:grid-cols-2"}`}>
 
             {/* Update milestones */}
             <SectionCard title="Update Milestones" description="Adjust progress percentages">
@@ -429,59 +445,114 @@ export function ProjectDetailView({
               )}
             </SectionCard>
 
-            {/* Create update */}
-            <SectionCard title="Create an Update" description="Share progress with customers">
-              <form
-                className="space-y-4"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (!userId || !newUpdateText.trim()) return;
-                  try {
-                    const { data, error: insErr } = await supabase
-                      .from("updates")
-                      .insert({ project_id: projectId, created_by: userId, text: newUpdateText.trim() })
-                      .select("*")
-                      .single();
-                    if (insErr) throw insErr;
-                    setCreatedUpdateId((data as Update).id);
-                    setNewUpdateText("");
-                    await refreshAll();
-                  } catch (e2) {
-                    setError(e2 instanceof Error ? e2.message : "Failed to create update");
-                  }
-                }}
-              >
-                <div>
-                  <FieldLabel>Update text</FieldLabel>
-                  <textarea
-                    value={newUpdateText}
-                    onChange={(e) => setNewUpdateText(e.target.value)}
-                    className={`${inputCls} min-h-[120px] resize-none`}
-                    placeholder="Write an update for customers…"
-                    required
-                  />
-                </div>
-                <PrimaryButton type="submit">Post update</PrimaryButton>
-              </form>
+            {/* Right column: Project Media + Create Update stacked vertically */}
+            <div className="space-y-5">
+              {/* Project media uploads (separate from text updates) */}
+              <SectionCard title="Project Media" description="Upload pictures/videos to show in the feed">
+                <div className="space-y-3">
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    multiple
+                    disabled={mediaUploading}
+                    onChange={async (e) => {
+                      const files = e.target.files ? Array.from(e.target.files) : [];
+                      if (!files.length) return;
+                      setMediaUploadError(null);
+                      setMediaUploading(true);
+                      try {
+                        const sessionRes = await supabase.auth.getSession();
+                        const accessToken = sessionRes.data.session?.access_token;
+                        if (!accessToken) throw new Error("Not authenticated");
 
-              {createdUpdateId && (
-                <div className="mt-4 space-y-3">
-                  <MediaUpload
-                    projectId={projectId}
-                    updateId={createdUpdateId}
-                    onUploaded={async () => { await refreshAll(); }}
+                        const form = new FormData();
+                        form.set("projectId", projectId);
+                        form.set("updateText", "Media attachment");
+                        for (const file of files) form.append("files", file);
+
+                        const res = await fetch("/api/projects/upload-project-media", {
+                          method: "POST",
+                          headers: { Authorization: `Bearer ${accessToken}` },
+                          body: form,
+                        });
+                        const json = await res.json();
+                        if (!res.ok) throw new Error(json?.error ?? "Upload failed");
+
+                        await refreshAll();
+                      } catch (err) {
+                        setMediaUploadError(err instanceof Error ? err.message : "Upload failed");
+                      } finally {
+                        setMediaUploading(false);
+                        if (e.target) e.target.value = "";
+                      }
+                    }}
+                    className="block w-full text-sm text-slate-600"
                   />
-                  <button
-                    type="button"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm
-                               font-semibold text-slate-600 hover:bg-slate-50 transition-all"
-                    onClick={() => setCreatedUpdateId(null)}
-                  >
-                    Done adding media
-                  </button>
+
+                  {mediaUploadError && (
+                    <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-2">
+                      {mediaUploadError}
+                    </div>
+                  )}
+
+                  {mediaUploading && <div className="text-sm text-slate-600">Uploading…</div>}
                 </div>
-              )}
-            </SectionCard>
+              </SectionCard>
+
+              {/* Create update */}
+              <SectionCard title="Create an Update" description="Share progress with customers">
+                <form
+                  className="space-y-4"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!userId || !newUpdateText.trim()) return;
+                    try {
+                      const { data, error: insErr } = await supabase
+                        .from("updates")
+                        .insert({ project_id: projectId, created_by: userId, text: newUpdateText.trim() })
+                        .select("*")
+                        .single();
+                      if (insErr) throw insErr;
+                      setCreatedUpdateId((data as Update).id);
+                      setNewUpdateText("");
+                      await refreshAll();
+                    } catch (e2) {
+                      setError(e2 instanceof Error ? e2.message : "Failed to create update");
+                    }
+                  }}
+                >
+                  <div>
+                    <FieldLabel>Update text</FieldLabel>
+                    <textarea
+                      value={newUpdateText}
+                      onChange={(e) => setNewUpdateText(e.target.value)}
+                      className={`${inputCls} min-h-[120px] resize-none`}
+                      placeholder="Write an update for customers…"
+                      required
+                    />
+                  </div>
+                  <PrimaryButton type="submit">Post update</PrimaryButton>
+                </form>
+
+                {createdUpdateId && (
+                  <div className="mt-4 space-y-3">
+                    <MediaUpload
+                      projectId={projectId}
+                      updateId={createdUpdateId}
+                      onUploaded={async () => { await refreshAll(); }}
+                    />
+                    <button
+                      type="button"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm
+                               font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+                      onClick={() => setCreatedUpdateId(null)}
+                    >
+                      Done adding media
+                    </button>
+                  </div>
+                )}
+              </SectionCard>
+            </div>
           </div>
         )}
 
@@ -495,7 +566,7 @@ export function ProjectDetailView({
 
           {/* Left: raise query + list */}
           <div className={`space-y-4 ${isDrawer ? "" : "lg:col-span-1"}`}>
-            {!canWrite && !queryFeatureUnavailable && (
+            {!readOnly && !canWrite && !queryFeatureUnavailable && (
               <SectionCard title="Raise a Query" description="Ask about this project">
                 <form
                   className="space-y-3"
@@ -579,9 +650,11 @@ export function ProjectDetailView({
                     canClose={canClose}
                     onSendReply={async (message) => {
                       if (!userId) return;
-                      const { error: insErr } = await supabase
+                      const { data: inserted, error: insErr } = await supabase
                         .from("query_replies")
-                        .insert({ query_id: selectedQuery.id, sender_id: userId, message });
+                        .insert({ query_id: selectedQuery.id, sender_id: userId, message })
+                        .select("*")
+                        .single();
                       if (insErr) {
                         if (isMissingTableError(insErr, "query_replies")) {
                           setError("`query_replies` table is missing in Supabase. Run your DB migrations first.");
@@ -589,9 +662,27 @@ export function ProjectDetailView({
                         }
                         throw insErr;
                       }
-                      const { data } = await supabase
-                        .from("query_replies").select("*").eq("query_id", selectedQuery.id).order("created_at", { ascending: true });
-                      setSelectedReplies((data ?? []) as QueryReply[]);
+                      if (inserted) {
+                        setSelectedReplies((prev) => {
+                          const next = [...prev, inserted as QueryReply].sort(
+                            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                          );
+                          return next;
+                        });
+                        try {
+                          await httpBroadcastQueryThread(supabase, selectedQuery.id, "reply", { reply: inserted });
+                        } catch {
+                          /* ignore */
+                        }
+                      } else {
+                        // Fallback to refetch if insert didn't return the row.
+                        const { data } = await supabase
+                          .from("query_replies")
+                          .select("*")
+                          .eq("query_id", selectedQuery.id)
+                          .order("created_at", { ascending: true });
+                        setSelectedReplies((data ?? []) as QueryReply[]);
+                      }
                     }}
                     onClose={async () => {
                       const { error: upErr } = await supabase

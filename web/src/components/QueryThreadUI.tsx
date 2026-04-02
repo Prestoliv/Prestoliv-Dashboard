@@ -28,12 +28,27 @@ function formatDateTime(iso: string) {
   } catch { return iso; }
 }
 
+function ReceiptMarks({ read }: { read: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold tabular-nums" title={read ? "Seen" : "Delivered"}>
+      <span className="text-[11px] leading-none opacity-90">✓</span>
+      {read && <span className="text-[11px] leading-none -ml-1.5 opacity-90">✓</span>}
+    </span>
+  );
+}
+
 /* ── Message bubble ─────────────────────────────────────────────── */
 function MessageBubble({
-  reply, isMine, index
+  reply, isMine, index, lastReadByPeerAt, showReceipts,
 }: {
   reply: QueryReply; isMine: boolean; index: number;
+  lastReadByPeerAt?: string | null;
+  showReceipts?: boolean;
 }) {
+  const read =
+    !!lastReadByPeerAt &&
+    new Date(lastReadByPeerAt).getTime() >= new Date(reply.created_at).getTime() - 500;
+
   return (
     <div
       className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : "flex-row"}`}
@@ -66,6 +81,13 @@ function MessageBubble({
           style={isMine ? { background: "linear-gradient(135deg,#0891b2,#0d9488)" } : {}}
         >
           <p className="whitespace-pre-wrap break-words">{reply.message}</p>
+          {isMine && showReceipts && (
+            <div className="flex justify-end mt-1">
+              <span className={`text-[10px] ${isMine ? "text-white/80" : ""}`}>
+                <ReceiptMarks read={read} />
+              </span>
+            </div>
+          )}
         </div>
         <span className="text-[10px] text-slate-400 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
           title={formatDateTime(reply.created_at)}>
@@ -73,6 +95,20 @@ function MessageBubble({
         </span>
       </div>
     </div>
+  );
+}
+
+function TypingDots() {
+  return (
+    <span className="inline-flex items-center gap-0.5 h-4" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="inline-block h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce"
+          style={{ animationDelay: `${i * 160}ms`, animationDuration: "0.9s" }}
+        />
+      ))}
+    </span>
   );
 }
 
@@ -86,6 +122,11 @@ export function QueryThreadUI({
   onSendReply,
   onClose,
   compact,
+  lastReadByPeerAt,
+  peerIsTyping,
+  peerTypingLabel,
+  onTypingActivity,
+  showReceipts = true,
 }: {
   query: Query;
   replies: QueryReply[];
@@ -96,12 +137,19 @@ export function QueryThreadUI({
   onClose: () => Promise<void> | void;
   /** Tighter layout for floating widget / small panels */
   compact?: boolean;
+  /** Peer read cursor: team last read (for customer) or customer last read (for team). Used for ✓✓. */
+  lastReadByPeerAt?: string | null;
+  peerIsTyping?: boolean;
+  peerTypingLabel?: string;
+  onTypingActivity?: (typing: boolean) => void;
+  showReceipts?: boolean;
 }) {
   const [message, setMessage]   = useState("");
   const [sending, setSending]   = useState(false);
   const [closing, setClosing]   = useState(false);
   const scrollRef               = useRef<HTMLDivElement>(null);
   const textRef                 = useRef<HTMLTextAreaElement>(null);
+  const typingIdleRef           = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isClosed = query.status === "closed";
 
@@ -112,12 +160,15 @@ export function QueryThreadUI({
     }
   }, [replies.length]);
 
-  /* Auto-resize textarea */
+  /* Auto-resize textarea + typing signal */
   function handleInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setMessage(e.target.value);
     const el = e.target;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+    onTypingActivity?.(true);
+    if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
+    typingIdleRef.current = setTimeout(() => onTypingActivity?.(false), 2200);
   }
 
   const sorted = [...replies].sort(
@@ -210,10 +261,19 @@ export function QueryThreadUI({
                 reply={r}
                 isMine={r.sender_id === senderId}
                 index={i}
+                lastReadByPeerAt={lastReadByPeerAt}
+                showReceipts={showReceipts}
               />
             ))
           )}
         </div>
+
+        {peerIsTyping && (
+          <div className="flex items-center gap-2 text-xs text-slate-500 px-1 py-1.5 -mt-1 mb-1">
+            <TypingDots />
+            <span className="font-medium">{peerTypingLabel ?? "Someone"} is typing…</span>
+          </div>
+        )}
 
         {/* ── Reply composer ── */}
         {canReply && !isClosed && (

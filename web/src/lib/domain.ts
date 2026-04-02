@@ -33,6 +33,8 @@ export type Media = {
   update_id: string | null;
   url: string; // storage object name/path
   type: MediaType;
+  /** Storage/object created time (used for lightbox metadata). */
+  created_at?: string;
 };
 
 export type Query = {
@@ -42,6 +44,10 @@ export type Query = {
   message: string;
   status: QueryStatus;
   created_at: string;
+  /** When the customer last opened this thread (read cursor). */
+  last_read_customer_at?: string | null;
+  /** When PM/admin last opened this thread (read cursor). */
+  last_read_team_at?: string | null;
 };
 
 export type QueryReply = {

@@ -6,6 +6,7 @@ import type { Project, Query, QueryReply } from "@/lib/domain";
 import { QueryThreadUI } from "@/components/QueryThreadUI";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
 import { isMissingTableError } from "@/lib/supabase/errors";
+import { httpBroadcastQueryThread } from "@/lib/realtime/queryThreadRealtime";
 
 type View = "projects" | "queries" | "thread";
 
@@ -501,16 +502,28 @@ export function FloatingProjectsChatWidget() {
                   canClose={canClose}
                   compact
                   onSendReply={async (message) => {
-                    const { error: insErr } = await supabase
+                    const { data: inserted, error: insErr } = await supabase
                       .from("query_replies")
-                      .insert({ query_id: selectedQuery.id, sender_id: userId, message });
-                    if (insErr) throw insErr;
-                    const { data } = await supabase
-                      .from("query_replies")
+                      .insert({ query_id: selectedQuery.id, sender_id: userId, message })
                       .select("*")
-                      .eq("query_id", selectedQuery.id)
-                      .order("created_at", { ascending: true });
-                    setReplies((data ?? []) as QueryReply[]);
+                      .single();
+                    if (insErr) throw insErr;
+                    if (inserted) {
+                      setReplies((prev) => {
+                        const next = [...prev, inserted as QueryReply].sort(
+                          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                        );
+                        return next;
+                      });
+                    }
+                    // Broadcast best-effort so the customer portal updates without refresh.
+                    if (inserted) {
+                      try {
+                        await httpBroadcastQueryThread(supabase, selectedQuery.id, "reply", { reply: inserted });
+                      } catch {
+                        /* ignore */
+                      }
+                    }
                   }}
                   onClose={async () => {
                     const { error: upErr } = await supabase

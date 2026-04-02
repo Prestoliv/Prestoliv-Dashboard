@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Media, Update } from "@/lib/domain";
-import { supabase, projectMediaBucket } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 
 function formatRelativeTime(iso: string) {
   try {
@@ -40,9 +41,16 @@ function MediaSkeleton() {
 }
 
 /* ── Media tile ──────────────────────────────────────────────────── */
-function MediaTile({ item, signedUrl }: { item: Media; signedUrl?: string }) {
+function MediaTile({
+  item,
+  signedUrl,
+  onPreview,
+}: {
+  item: Media;
+  signedUrl?: string;
+  onPreview?: () => void;
+}) {
   const [loaded, setLoaded] = useState(false);
-  const [lightbox, setLightbox] = useState(false);
 
   if (item.type === "image") {
     return (
@@ -50,7 +58,10 @@ function MediaTile({ item, signedUrl }: { item: Media; signedUrl?: string }) {
         <div
           className="relative rounded-xl overflow-hidden bg-slate-100 cursor-zoom-in group"
           style={{ height: 160 }}
-          onClick={() => signedUrl && setLightbox(true)}
+          onClick={() => {
+            if (!signedUrl) return;
+            onPreview?.();
+          }}
         >
           {!loaded && <MediaSkeleton />}
           {signedUrl && (
@@ -58,8 +69,20 @@ function MediaTile({ item, signedUrl }: { item: Media; signedUrl?: string }) {
             <img
               src={signedUrl}
               alt="Update media"
-              className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-[1.02] ${loaded ? "opacity-100" : "opacity-0 absolute inset-0"}`}
+              className={`w-full h-full object-cover transition-all duration-300 will-change-transform group-hover:scale-110 ${loaded ? "opacity-100" : "opacity-0 absolute inset-0"}`}
               onLoad={() => setLoaded(true)}
+            />
+          )}
+          {/* Hover "zoom" effect (kept inside the tile bounds) */}
+          {signedUrl && (
+            <div
+              aria-hidden
+              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+              style={{
+                backgroundImage: `url(${signedUrl})`,
+                backgroundSize: "220% 220%",
+                backgroundPosition: "center",
+              }}
             />
           )}
           {/* Hover overlay */}
@@ -71,25 +94,6 @@ function MediaTile({ item, signedUrl }: { item: Media; signedUrl?: string }) {
             </div>
           </div>
         </div>
-
-        {/* Lightbox */}
-        {lightbox && signedUrl && (
-          <div
-            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm"
-            onClick={() => setLightbox(false)}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={signedUrl} alt="Full size" className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain" />
-            <button
-              className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
-              onClick={() => setLightbox(false)}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M3 3l10 10M13 3L3 13" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
-              </svg>
-            </button>
-          </div>
-        )}
       </>
     );
   }
@@ -119,6 +123,45 @@ function UpdateCard({ update, mediaItems, signedUrls }: {
   const [expanded, setExpanded] = useState(true);
   const isLong = update.text.length > 280;
   const truncated = isLong && !expanded;
+
+  const imageItems = useMemo(
+    () => (mediaItems ?? []).filter((m) => m.type === "image"),
+    [mediaItems]
+  );
+
+  // Only allow lightbox navigation across images we can actually render.
+  const signedImageItems = useMemo(
+    () => (imageItems ?? []).filter((m) => Boolean(signedUrls?.[m.id])),
+    [imageItems, signedUrls]
+  );
+
+  const imageIndexById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (let i = 0; i < signedImageItems.length; i += 1) map.set(signedImageItems[i].id, i);
+    return map;
+  }, [signedImageItems]);
+
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const activeImage = lightboxIndex == null ? null : signedImageItems[lightboxIndex] ?? null;
+  const activeSignedUrl = activeImage ? signedUrls[activeImage.id] : undefined;
+
+  useEffect(() => {
+    if (lightboxIndex == null) return;
+    if (lightboxIndex < 0 || lightboxIndex >= signedImageItems.length) {
+      setLightboxIndex(signedImageItems.length ? 0 : null);
+    }
+  }, [signedImageItems.length, lightboxIndex]);
+
+  useEffect(() => {
+    if (lightboxIndex == null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxIndex(null);
+      if (e.key === "ArrowLeft") setLightboxIndex((idx) => (idx == null ? idx : Math.max(0, idx - 1)));
+      if (e.key === "ArrowRight") setLightboxIndex((idx) => (idx == null ? idx : Math.min(signedImageItems.length - 1, idx + 1)));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, signedImageItems.length]);
 
   return (
     <article className="rounded-2xl border border-slate-100 bg-white overflow-hidden
@@ -170,11 +213,90 @@ function UpdateCard({ update, mediaItems, signedUrls }: {
         {mediaItems.length > 0 && (
           <div className={`mt-4 grid gap-2 ${mediaItems.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
             {mediaItems.map(m => (
-              <MediaTile key={m.id} item={m} signedUrl={signedUrls[m.id]} />
+              <MediaTile
+                key={m.id}
+                item={m}
+                signedUrl={signedUrls[m.id]}
+                onPreview={() => {
+                  const idx = imageIndexById.get(m.id);
+                  if (idx == null) return;
+                  setLightboxIndex(idx);
+                }}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Elevated lightbox (above drawer + floating button) ── */}
+      {activeImage && activeSignedUrl && lightboxIndex != null &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setLightboxIndex(null)}
+          >
+            <div
+              className="relative w-full max-w-4xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="absolute -top-2 -right-2 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition"
+                aria-label="Close preview"
+                onClick={() => setLightboxIndex(null)}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path d="M4 4l8 8M12 4L4 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </button>
+
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={activeSignedUrl}
+                alt={activeImage.url}
+                className="w-full max-h-[72vh] object-contain rounded-2xl shadow-2xl bg-black/5"
+              />
+
+              <div className="mt-3 text-center">
+                <div className="text-sm font-bold text-white/95">
+                  {(activeImage.url.split("/").pop() ?? "Image")}
+                </div>
+                {activeImage.created_at && (
+                  <div className="text-xs text-white/75 mt-0.5">
+                    Uploaded: {formatDateTime(activeImage.created_at)}
+                  </div>
+                )}
+
+                {signedImageItems.length > 1 && (
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      className="h-10 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white disabled:opacity-40 disabled:hover:bg-white/10 transition"
+                      disabled={lightboxIndex <= 0}
+                      onClick={() => setLightboxIndex((idx) => (idx == null ? idx : Math.max(0, idx - 1)))}
+                    >
+                      Prev
+                    </button>
+                    <div className="text-xs text-white/70">
+                      {lightboxIndex + 1} / {signedImageItems.length}
+                    </div>
+                    <button
+                      type="button"
+                      className="h-10 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white disabled:opacity-40 disabled:hover:bg-white/10 transition"
+                      disabled={lightboxIndex >= signedImageItems.length - 1}
+                      onClick={() => setLightboxIndex((idx) => (idx == null ? idx : Math.min(signedImageItems.length - 1, idx + 1)))}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </article>
   );
 }
@@ -203,21 +325,33 @@ export function UpdateFeed({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const bucket = projectMediaBucket();
-      const entries: [string, string][] = [];
-      for (const item of media ?? []) {
-        if (!item.url) continue;
-        try {
-          const { data } = await supabase.storage.from(bucket).createSignedUrl(item.url, 60 * 60);
-          if (data?.signedUrl) entries.push([item.id, data.signedUrl]);
-        } catch { /* skip */ }
+      try {
+        const session = await supabase.auth.getSession();
+        const accessToken = session.data.session?.access_token;
+        if (!accessToken) return;
+
+        const res = await fetch("/api/media/signed-urls", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            media: (media ?? []).map((m) => ({
+              id: m.id,
+              url: m.url,
+              project_id: m.project_id,
+            })),
+          }),
+        });
+
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled) return;
+        setSignedByMediaId((json?.signedByMediaId ?? {}) as Record<string, string>);
+      } catch {
+        // If signing fails, media tiles will just stay blank (no crash).
       }
-      if (cancelled) return;
-      setSignedByMediaId(prev => {
-        const next = { ...prev };
-        for (const [id, url] of entries) next[id] = url;
-        return next;
-      });
     })();
     return () => { cancelled = true; };
   }, [media]);
