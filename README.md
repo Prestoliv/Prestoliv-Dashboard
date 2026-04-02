@@ -1,5 +1,4 @@
 # Prestoliv Dashboard
-
 <div align="center">
   <img src="web/public/logo.png" alt="Prestoliv logo" width="160" />
 </div>
