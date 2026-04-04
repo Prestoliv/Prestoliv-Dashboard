@@ -58,6 +58,48 @@ paths:
         "401":
           description: Unauthorized
 
+  /api/auth/verify-google:
+    post:
+      tags: [Auth]
+      summary: Verify Google ID token and return UID
+      description: |
+        Verifies a Google **ID token** (JWT) and returns the Google user id (`sub`) as `google.uid`.
+        If a matching Supabase Auth user exists for the same email, it also returns `supabase.uid` (best-effort).
+
+        Notes:
+        - Intended for Webflow / external clients calling your Next.js deployment.
+        - Optional protection: set `WEBFLOW_AUTH_SHARED_SECRET` on the server and send `x-webflow-secret`.
+      parameters:
+        - name: x-webflow-secret
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Optional shared secret to protect this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyGoogleTokenRequest"
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyGoogleTokenResponse"
+        "400":
+          description: Missing or invalid request body
+        "401":
+          description: Invalid token / unauthorized
+    options:
+      tags: [Auth]
+      summary: CORS preflight
+      responses:
+        "204":
+          description: No content
+
   /rest/v1/users:
     get:
       tags: [Users]
@@ -684,3 +726,39 @@ components:
       properties:
         user_id: { type: string, format: uuid }
         action: { type: string }
+
+    VerifyGoogleTokenRequest:
+      type: object
+      description: Google ID token payload (accepts either key).
+      properties:
+        idToken:
+          type: string
+          description: Google ID token (preferred key).
+        id_token:
+          type: string
+          description: Google ID token (alternate key).
+      oneOf:
+        - required: [idToken]
+        - required: [id_token]
+
+    VerifyGoogleTokenResponse:
+      type: object
+      properties:
+        google:
+          type: object
+          properties:
+            uid: { type: string, description: Google user id (JWT `sub`). }
+            email: { type: string, format: email, nullable: true }
+            name: { type: string, nullable: true }
+            picture: { type: string, nullable: true }
+            email_verified: { type: boolean, nullable: true }
+          required: [uid]
+        supabase:
+          type: object
+          properties:
+            uid:
+              type: string
+              format: uuid
+              nullable: true
+              description: Supabase Auth user id if matched by email (best-effort).
+      required: [google, supabase]
