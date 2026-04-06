@@ -1,6 +1,5 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { AppShell } from "@/components/AppShell";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -18,7 +17,7 @@ export const metadata: Metadata = {
     follow: true,
   },
   icons: {
-    icon: "/logo.png",
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
   },
   openGraph: {
     type: "website",
@@ -30,9 +29,9 @@ export const metadata: Metadata = {
       "Track milestones, share updates with media, and keep customer conversations in real time.",
     images: [
       {
-        url: "/logo.png",
-        width: 512,
-        height: 512,
+        url: "/logo.svg",
+        width: 2084,
+        height: 2084,
         alt: "Prestoliv logo",
       },
     ],
@@ -41,16 +40,14 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Prestoliv - Project Tracking & Client Communication",
     description: "Realtime project updates and customer messaging.",
-    images: ["/logo.png"],
+    images: ["/logo.svg"],
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
-        <AppShell>{children}</AppShell>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

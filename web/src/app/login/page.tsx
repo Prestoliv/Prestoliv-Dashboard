@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
+import { postAuthHref } from "@/lib/auth/postAuthRedirect";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,7 +30,7 @@ export default function LoginPage({
   searchParams?: { mode?: string };
 }) {
   const router = useRouter();
-  const { loading, role } = useCurrentUserRole();
+  const { loading, userId } = useCurrentUserRole();
 
   const initialMode = useMemo(() => {
     const mode = searchParams?.mode;
@@ -56,8 +57,10 @@ export default function LoginPage({
   }, [initialMode]);
 
   useEffect(() => {
-    if (!loading && role) router.replace("/dashboard");
-  }, [loading, role, router]);
+    if (!loading && userId) {
+      router.replace(postAuthHref(userId));
+    }
+  }, [loading, userId, router]);
 
   const switchMode = (next: "signin" | "signup") => {
     setError(null);
@@ -163,7 +166,9 @@ export default function LoginPage({
                     try {
                       const { data, error: authError } = await supabase.auth.signInWithPassword(values);
                       if (authError) throw authError;
-                      if (data.user) router.replace("/dashboard");
+                      if (data.user) {
+                        router.replace(postAuthHref(data.user.id));
+                      }
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Sign in failed");
                     } finally {
@@ -222,7 +227,9 @@ export default function LoginPage({
                           : "Check your inbox to confirm your email address."
                       );
                       const { data: u } = await supabase.auth.getUser();
-                      if (u.user) router.replace("/dashboard");
+                      if (u.user) {
+                        router.replace(postAuthHref(u.user.id));
+                      }
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Sign up failed");
                     } finally {

@@ -127,11 +127,14 @@ export function SidebarNav({
   const COLLAPSED_W = 68;
   const W = collapsed ? COLLAPSED_W : EXPANDED_W;
 
-  const navItems = [
+  const baseNav: { href: string; label: string; Icon: React.FC }[] = [
     { href: "/dashboard", label: "Dashboard", Icon: IconGrid },
-    { href: "/queries",   label: "Queries",   Icon: IconChat },
-    ...(role === "admin" ? [{ href: "/admin", label: "Admin", Icon: IconShield }] : []),
+    { href: "/queries", label: "Queries", Icon: IconChat },
   ];
+  const navItems =
+    role === "admin"
+      ? [...baseNav, { href: "/admin", label: "Admin", Icon: IconShield }]
+      : baseNav;
 
   const cfg      = role ? (roleConfig[role] ?? roleConfig.customer) : null;
   const initials = name

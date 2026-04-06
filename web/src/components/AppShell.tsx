@@ -45,11 +45,12 @@ const IconLogout = () => (
 const LogoMark = () => (
   <div className="h-7 w-7 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
     <Image
-      src="/logo.png"
+      src="/logo.svg"
       alt="Prestoliv logo"
       width={28}
       height={28}
       className="object-contain"
+      unoptimized
       priority
     />
   </div>

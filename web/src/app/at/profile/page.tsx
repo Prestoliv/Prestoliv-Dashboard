@@ -80,6 +80,11 @@ export default function TokenCustomerProfilePage() {
   const lastRealtimeReplyAtRef = useRef(0);
   const typingIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingThrottleRef = useRef(0);
+  const webflowSyncDoneRef = useRef(false);
+
+  useEffect(() => {
+    webflowSyncDoneRef.current = false;
+  }, [uid]);
 
   useEffect(() => {
     if (bootstrapped) return;
@@ -141,6 +146,49 @@ export default function TokenCustomerProfilePage() {
   }
 
   useEffect(() => { const u = uid.trim(); if (!u) return; loadAll(u); }, [uid]);
+
+  /* Webflow / embed: localStorage + optional Webflow tab to sync query params (same user as portal uid) */
+  useEffect(() => {
+    const u = uid.trim();
+    if (!u || loading || error) return;
+
+    let cancelled = false;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled || !user) return;
+      if (user.id !== u) return;
+      if (webflowSyncDoneRef.current) return;
+      webflowSyncDoneRef.current = true;
+
+      const name =
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        "";
+      const avatar = user.user_metadata?.avatar_url;
+
+      try {
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userName", name != null ? String(name) : "");
+        localStorage.setItem("userAvatar", avatar != null ? String(avatar) : "");
+      } catch {
+        /* private mode / quota */
+      }
+
+      const base = (
+        process.env.NEXT_PUBLIC_WEBFLOW_SYNC_URL ??
+        "https://prestoliversslaunch.webflow.io"
+      ).replace(/\/$/, "");
+      const syncUrl = `${base}?name=${encodeURIComponent(name != null ? String(name) : "")}&avatar=${encodeURIComponent(avatar != null ? String(avatar) : "")}`;
+      window.open(syncUrl, "_blank", "width=1,height=1");
+
+      // eslint-disable-next-line no-console -- intentional sync confirmation for Webflow debugging
+      console.log("✅ Synced user to Webflow");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, error, uid]);
 
   /* Realtime: replies + read + typing (broadcast; portal has no Postgres realtime session) */
   useEffect(() => {
