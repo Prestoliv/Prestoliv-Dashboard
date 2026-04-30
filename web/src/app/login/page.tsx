@@ -64,7 +64,7 @@ export default function LoginPage({
         .select("role")
         .eq("id", userId)
         .single()
-        .then(({ data }) => {
+        .then(({ data }: { data: { role: string } | null }) => {
           const userRole = data?.role as UserRole;
           if (userRole === "admin") {
             router.replace("/admin");
