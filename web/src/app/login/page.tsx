@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
-import { postAuthHref } from "@/lib/auth/postAuthRedirect";
+import type { UserRole } from "@/lib/types";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -58,7 +58,20 @@ export default function LoginPage({
 
   useEffect(() => {
     if (!loading && userId) {
-      router.replace(postAuthHref(userId));
+      // Get user role to determine correct redirect
+      supabase
+        .from("users")
+        .select("role")
+        .eq("id", userId)
+        .single()
+        .then(({ data }) => {
+          const userRole = data?.role as UserRole;
+          if (userRole === "admin") {
+            router.replace("/admin");
+          } else {
+            router.replace("/dashboard");
+          }
+        });
     }
   }, [loading, userId, router]);
 
@@ -167,7 +180,23 @@ export default function LoginPage({
                       const { data, error: authError } = await supabase.auth.signInWithPassword(values);
                       if (authError) throw authError;
                       if (data.user) {
+<<<<<<< HEAD
                         router.replace(postAuthHref(data.user.id));
+=======
+                        // Get user role to determine correct redirect
+                        const { data: roleData } = await supabase
+                          .from("users")
+                          .select("role")
+                          .eq("id", data.user.id)
+                          .single();
+                        
+                        const userRole = roleData?.role as UserRole;
+                        if (userRole === "admin") {
+                          router.replace("/admin");
+                        } else {
+                          router.replace("/dashboard");
+                        }
+>>>>>>> 90ba230 (Fix)
                       }
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Sign in failed");
@@ -228,7 +257,23 @@ export default function LoginPage({
                       );
                       const { data: u } = await supabase.auth.getUser();
                       if (u.user) {
+<<<<<<< HEAD
                         router.replace(postAuthHref(u.user.id));
+=======
+                        // Get user role to determine correct redirect
+                        const { data: roleData } = await supabase
+                          .from("users")
+                          .select("role")
+                          .eq("id", u.user.id)
+                          .single();
+                        
+                        const userRole = roleData?.role as UserRole;
+                        if (userRole === "admin") {
+                          router.replace("/admin");
+                        } else {
+                          router.replace("/dashboard");
+                        }
+>>>>>>> 90ba230 (Fix)
                       }
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Sign up failed");
