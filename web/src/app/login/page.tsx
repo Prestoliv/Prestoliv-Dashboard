@@ -180,9 +180,6 @@ export default function LoginPage({
                       const { data, error: authError } = await supabase.auth.signInWithPassword(values);
                       if (authError) throw authError;
                       if (data.user) {
-<<<<<<< HEAD
-                        router.replace(postAuthHref(data.user.id));
-=======
                         // Get user role to determine correct redirect
                         const { data: roleData } = await supabase
                           .from("users")
@@ -196,7 +193,6 @@ export default function LoginPage({
                         } else {
                           router.replace("/dashboard");
                         }
->>>>>>> 90ba230 (Fix)
                       }
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Sign in failed");
@@ -257,9 +253,6 @@ export default function LoginPage({
                       );
                       const { data: u } = await supabase.auth.getUser();
                       if (u.user) {
-<<<<<<< HEAD
-                        router.replace(postAuthHref(u.user.id));
-=======
                         // Get user role to determine correct redirect
                         const { data: roleData } = await supabase
                           .from("users")
@@ -273,7 +266,6 @@ export default function LoginPage({
                         } else {
                           router.replace("/dashboard");
                         }
->>>>>>> 90ba230 (Fix)
                       }
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Sign up failed");
