@@ -49,6 +49,11 @@ const IconChevronRight = () => (
     <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
+const IconLogout = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M10 3h3a1 1 0 011 1v8a1 1 0 01-1 1h-3M6 8l3-3m0 0l-3 3m3-3H2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 /* ─────────────────────────────────────────────────────────────────
    MINI SPARKLINE (SVG inline)
@@ -441,6 +446,15 @@ function DashboardInner() {
   const projectsKey = enabled ? `dashboard:projects:${role}:${userId}` : "dashboard:projects:anon";
   const progressKey = enabled ? `dashboard:progress:${role}:${userId}` : "dashboard:progress:anon";
 
+  async function handleLogout() {
+    try {
+      await supabase.auth.signOut();
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  }
+
   function downloadDashboardCsv() {
     const esc = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`;
     const header = [
@@ -606,6 +620,15 @@ function DashboardInner() {
                 Export stats
               </button>
             )}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 shadow-sm hover:border-red-300 hover:text-red-700 hover:bg-red-50 transition-all"
+              title="Sign out of your account"
+            >
+              <IconLogout />
+              Sign out
+            </button>
           </div>
         </div>
 
