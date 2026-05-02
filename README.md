@@ -1,7 +1,4 @@
 # Prestoliv Dashboard
-<div align="center">
-  <img src="web/public/logo.png" alt="Prestoliv logo" width="160" />
-</div>
 
 Prestoliv is a web dashboard with a Supabase-backed backend (RLS + realtime) for:
 - Project tracking (milestones / updates)
