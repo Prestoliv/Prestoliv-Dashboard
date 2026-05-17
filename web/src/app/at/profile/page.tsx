@@ -1,7 +1,7 @@
 'use client';
 
 import "./portal.css";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import type { Milestone, Project, Query, QueryReply } from "@/lib/domain";
 import {
   httpBroadcastQueryThread,
@@ -38,24 +38,38 @@ function getInitials(name: string) {
 function StatusBadge({ status }: { status: string }) {
   const active = status === "open" || status === "active";
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 4,
-      padding: "2px 8px", borderRadius: 99,
-      fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" as const,
-      background: active ? "#eff6ff" : "#f8fafc",
-      color: active ? "#1d4ed8" : "#64748b",
-      border: `1px solid ${active ? "#bfdbfe" : "#e2e8f0"}`,
-      whiteSpace: "nowrap" as const,
-    }}>
-      <span style={{
-        width: 5, height: 5, borderRadius: "50%",
-        background: active ? "#3b82f6" : "#cbd5e1",
-        display: "inline-block", flexShrink: 0,
-      }} />
+    <span className={`status-badge ${active ? "active" : "inactive"}`}>
+      <span className="status-dot" />
       {status}
     </span>
   );
 }
+
+const STAT_ICONS: Record<string, ReactNode> = {
+  Projects: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <rect x="2" y="3" width="6" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.4"/>
+      <rect x="10" y="3" width="6" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.4"/>
+      <rect x="2" y="10" width="14" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.4"/>
+    </svg>
+  ),
+  "Open queries": (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path d="M2.5 4.5h13a1 1 0 011 1v6a1 1 0 01-1 1H6l-3.5 2.5V5.5a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+    </svg>
+  ),
+  "Avg progress": (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path d="M3 14V8M7 14V4M11 14v-4M15 14V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  ),
+  "Account role": (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <circle cx="9" cy="6" r="3" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M3.5 15.5c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  ),
+};
 
 export default function TokenCustomerProfilePage() {
   const [uid, setUid] = useState("");
@@ -120,6 +134,18 @@ export default function TokenCustomerProfilePage() {
   const sortedProjects = useMemo(
     () => [...projects].sort((a, b) => (a.status === "active" && b.status !== "active" ? -1 : 0)),
     [projects]
+  );
+  const drawerProject = useMemo(
+    () => projects.find((p) => p.id === projectDrawerId) ?? null,
+    [projects, projectDrawerId]
+  );
+  const drawerMilestones = useMemo(
+    () => (projectDrawerId ? milestones.filter((m) => m.project_id === projectDrawerId) : []),
+    [milestones, projectDrawerId]
+  );
+  const drawerQueries = useMemo(
+    () => (projectDrawerId ? queries.filter((q) => q.project_id === projectDrawerId) : []),
+    [queries, projectDrawerId]
   );
 
   async function loadAll(targetUid: string) {
@@ -362,24 +388,34 @@ export default function TokenCustomerProfilePage() {
     }
   }
 
+  const todayLabel = new Date().toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
   return (
-    <>
+    <div className="portal-shell">
+      <div className="portal-grid" aria-hidden />
+      <div className="portal-glow" aria-hidden />
       {loading && <div className="loading-bar" />}
 
       {/* ── TOP NAV ────────────────────────────────── */}
       <header className="topnav">
         <div className="nav-brand">
           <div className="nav-dot">P</div>
-          <span className="nav-name">Customer Portal</span>
+          <span className="nav-name">Prestoliv</span>
+          <span className="nav-tag">Portal</span>
         </div>
         <div className="nav-right">
           {profile && (
-            <div>
+            <div className="nav-user-block">
               <div className="nav-user-name">{displayName}</div>
               <div className="nav-user-sub">{profile.email ?? profile.role ?? "customer"}</div>
             </div>
           )}
-          <div className="nav-avatar">{getInitials(displayName)}</div>
+          <div className="nav-avatar" title={displayName}>{getInitials(displayName)}</div>
         </div>
       </header>
 
@@ -392,7 +428,21 @@ export default function TokenCustomerProfilePage() {
         )}
         {error && <div className="alert alert-err">{error}</div>}
 
-        {/* Stats */}
+        <section className="hero page-hero" aria-label="Welcome">
+          <div className="hero-inner page-hero-inner">
+            <div>
+              <p className="hero-greeting">Your workspace</p>
+              <h1 className="hero-title">
+                Welcome back, <span>{displayName}</span>
+              </h1>
+              <p className="hero-sub">
+                Track project progress, review milestones, and chat with our team — all in one place.
+              </p>
+            </div>
+            <p className="page-hero-date">{todayLabel}</p>
+          </div>
+        </section>
+
         <div className="stats">
           {[
             { l: "Projects", v: projects.length },
@@ -401,8 +451,11 @@ export default function TokenCustomerProfilePage() {
             { l: "Account role", v: profile?.role ?? "customer" },
           ].map((s) => (
             <div key={s.l} className="stat">
-              <div className="stat-l">{s.l}</div>
-              <div className="stat-v">{s.v}</div>
+              <div className="stat-icon">{STAT_ICONS[s.l]}</div>
+              <div className="stat-body">
+                <div className="stat-l">{s.l}</div>
+                <div className="stat-v">{s.v}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -521,8 +574,10 @@ export default function TokenCustomerProfilePage() {
 
         {/* Header */}
         <div className="chat-hdr">
-          <div className="chat-hdr-av">
-            {selectedQuery ? "💬" : "✉"}
+          <div className="chat-hdr-av" aria-hidden>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M2.5 4.5h13a1 1 0 011 1v6a1 1 0 01-1 1H6l-3.5 2.5V5.5a1 1 0 011-1z" stroke="#fff" strokeWidth="1.4" strokeLinejoin="round"/>
+            </svg>
           </div>
           <div className="chat-hdr-info">
             <div className="chat-hdr-name">
@@ -703,7 +758,10 @@ export default function TokenCustomerProfilePage() {
         open={projectDrawerId !== null}
         onClose={() => setProjectDrawerId(null)}
         readOnly
+        portalProject={drawerProject}
+        portalMilestones={drawerMilestones}
+        portalQueries={drawerQueries}
       />
-    </>
+    </div>
   );
 }
