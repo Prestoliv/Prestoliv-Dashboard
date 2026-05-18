@@ -9,6 +9,11 @@ import {
 } from "@/lib/realtime/queryThreadRealtime";
 import { supabase } from "@/lib/supabase/client";
 import { ProjectSideDrawer } from "@/components/ProjectSideDrawer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ProfileRow = {
   id: string;
@@ -71,6 +76,385 @@ const STAT_ICONS: Record<string, ReactNode> = {
   ),
 };
 
+// ── Not-a-customer full-page gate ─────────────────────────────────────────────
+function NotCustomerGate() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    city: "",
+    service: "",
+  });
+
+// Add this state
+const [submitted, setSubmitted] = useState(false);
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  console.log("Consultation request:", formData);
+
+  // simulate API
+  await new Promise((r) => setTimeout(r, 900));
+
+  setSubmitted(true);
+
+  // Optional auto close
+  setTimeout(() => {
+    setDialogOpen(false);
+    setSubmitted(false);
+
+    setFormData({
+      name: "",
+      phone: "",
+      email: "",
+      city: "",
+      service: "",
+    });
+  }, 3500);
+};
+
+  return (
+    <div className="portal-shell" style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      <div className="portal-grid" aria-hidden />
+      <div className="portal-glow" aria-hidden />
+
+      <header className="topnav">
+        <div className="nav-brand">
+          <div className="nav-dot">P</div>
+          <span className="nav-name">Prestoliv</span>
+          <span className="nav-tag">Portal</span>
+        </div>
+      </header>
+
+      <div style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        padding: "48px 24px",
+      }}>
+        {/* Icon */}
+        <div style={{
+          width: 64,
+          height: 64,
+          borderRadius: 18,
+          background: "var(--surface2, rgba(0,0,0,0.04))",
+          border: "1px solid var(--border, rgba(0,0,0,0.08))",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 24,
+        }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.6"/>
+            <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+          </svg>
+        </div>
+
+        {/* Heading */}
+        <h1 style={{
+          fontSize: 22,
+          fontWeight: 600,
+          margin: "0 0 10px",
+          color: "var(--text1)",
+        }}>
+          You're not a customer yet
+        </h1>
+
+        {/* Sub */}
+        <p style={{
+          fontSize: 14,
+          color: "var(--text3)",
+          maxWidth: 320,
+          lineHeight: 1.65,
+          margin: "0 0 32px",
+        }}>
+          This portal is only accessible to active Prestoliv customers.
+          Reach out and we'll get you set up right away.
+        </p>
+
+        {/* CTA — opens dialog */}
+        <button
+          onClick={() => setDialogOpen(true)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 22px",
+            borderRadius: 10,
+            background: "var(--accent, #0f9e75)",
+            color: "#fff",
+            fontSize: 14,
+            fontWeight: 500,
+            border: "none",
+            cursor: "pointer",
+            letterSpacing: "0.01em",
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path d="M1.5 3.5h13l-6.5 5.5L1.5 3.5z" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round"/>
+            <path d="M1.5 3.5v9h13v-9" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round"/>
+          </svg>
+          Contact us
+        </button>
+
+        {/* Hint */}
+        <p style={{
+          fontSize: 12,
+          color: "var(--text3)",
+          marginTop: 16,
+          opacity: 0.7,
+        }}>
+          Already a customer? Make sure you're using the correct link.
+        </p>
+      </div>
+
+      {/* Consultation Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent
+            className="
+              sm:max-w-[520px]
+              border border-neutral-200
+              bg-white
+              shadow-2xl
+              rounded-3xl
+              p-0
+              overflow-hidden
+            "
+          >
+            {!submitted ? (
+              <>
+                {/* Top Gradient */}
+                <div className="h-2 w-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" />
+
+                <div className="p-8 bg-white">
+                  <DialogHeader className="space-y-3 text-left">
+                    <DialogTitle className="text-3xl font-semibold tracking-tight text-black">
+                      Let’s Build Something Great
+                    </DialogTitle>
+
+                    <p className="text-sm leading-6 text-neutral-500">
+                      Share your requirements with us and our team will connect with
+                      you to discuss your project, timeline, and consultation details.
+                    </p>
+                  </DialogHeader>
+
+                  <form onSubmit={handleSubmit} className="space-y-5 pt-7">
+                    <div className="space-y-2">
+                      <Label htmlFor="name" className="text-neutral-700">
+                        Full Name
+                      </Label>
+
+                      <Input
+                        id="name"
+                        placeholder="Enter your full name"
+                        value={formData.name}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
+                        required
+                        className="
+                          h-12
+                          rounded-xl
+                          border-neutral-200
+                          bg-white
+                          text-black
+                          placeholder:text-neutral-400
+                          focus-visible:ring-emerald-500
+                        "
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="phone" className="text-neutral-700">
+                          Phone Number
+                        </Label>
+
+                        <Input
+                          id="phone"
+                          type="tel"
+                          placeholder="+91 XXXXX XXXXX"
+                          value={formData.phone}
+                          onChange={(e) =>
+                            setFormData({ ...formData, phone: e.target.value })
+                          }
+                          required
+                          className="
+                            h-12
+                            rounded-xl
+                            border-neutral-200
+                            bg-white
+                            text-black
+                            placeholder:text-neutral-400
+                            focus-visible:ring-emerald-500
+                          "
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="city" className="text-neutral-700">
+                          City / Town
+                        </Label>
+
+                        <Input
+                          id="city"
+                          placeholder="Mumbai"
+                          value={formData.city}
+                          onChange={(e) =>
+                            setFormData({ ...formData, city: e.target.value })
+                          }
+                          required
+                          className="
+                            h-12
+                            rounded-xl
+                            border-neutral-200
+                            bg-white
+                            text-black
+                            placeholder:text-neutral-400
+                            focus-visible:ring-emerald-500
+                          "
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-neutral-700">
+                        Email Address
+                      </Label>
+
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={formData.email}
+                        onChange={(e) =>
+                          setFormData({ ...formData, email: e.target.value })
+                        }
+                        className="
+                          h-12
+                          rounded-xl
+                          border-neutral-200
+                          bg-white
+                          text-black
+                          placeholder:text-neutral-400
+                          focus-visible:ring-emerald-500
+                        "
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="service" className="text-neutral-700">
+                        Service Required
+                      </Label>
+
+                      <Select
+                        value={formData.service}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, service: value })
+                        }
+                        required
+                      >
+                        <SelectTrigger
+                          className="
+                            h-12
+                            rounded-xl
+                            border-neutral-200
+                            bg-white
+                            text-black
+                            focus:ring-emerald-500
+                          "
+                        >
+                          <SelectValue placeholder="Select your service" />
+                        </SelectTrigger>
+
+                        <SelectContent className="rounded-xl border-neutral-200 bg-white">
+                          <SelectItem value="residential">
+                            Residential Construction
+                          </SelectItem>
+
+                          <SelectItem value="commercial">
+                            Commercial Projects
+                          </SelectItem>
+
+                          <SelectItem value="renovation">
+                            Renovation & Remodeling
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="
+                        h-12
+                        w-full
+                        rounded-xl
+                        bg-emerald-500
+                        text-white
+                        font-medium
+                        transition-all
+                        hover:bg-emerald-400
+                        hover:scale-[1.01]
+                        active:scale-[0.99]
+                        shadow-lg shadow-emerald-500/20
+                      "
+                    >
+                      Submit Enquiry
+                    </Button>
+                  </form>
+                </div>
+              </>
+            ) : (
+              <div className="px-8 py-14 text-center bg-white">
+                <div
+                  className="
+                    mx-auto mb-6
+                    flex h-20 w-20 items-center justify-center
+                    rounded-full
+                    bg-emerald-50
+                    border border-emerald-100
+                  "
+                >
+                  <svg
+                    width="36"
+                    height="36"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="#10b981"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+
+                <h2 className="text-2xl font-semibold text-black">
+                  Thank You!
+                </h2>
+
+                <p className="mt-4 text-sm leading-7 text-neutral-500 max-w-sm mx-auto">
+                  Your enquiry has been submitted successfully.
+                  Someone from our team will reach out to you shortly to discuss
+                  your requirements and next steps.
+                </p>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function TokenCustomerProfilePage() {
   const [uid, setUid] = useState("");
   const atSecret = process.env.NEXT_PUBLIC_AT_SHARED_SECRET ?? "";
@@ -86,6 +470,7 @@ export default function TokenCustomerProfilePage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notCustomer, setNotCustomer] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -149,14 +534,23 @@ export default function TokenCustomerProfilePage() {
   );
 
   async function loadAll(targetUid: string) {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
+    setNotCustomer(false);
     try {
       const url = new URL("/api/at/bundle", window.location.origin);
       url.searchParams.set("uid", targetUid);
       if (atSecret) url.searchParams.set("secret", atSecret);
       const res = await fetch(url.toString());
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Failed to load");
+
+      if (!res.ok) {
+        // Any non-OK response (403, 404, 500, etc.) means the UID isn't a
+        // valid customer — show the gate instead of a raw error banner.
+        setNotCustomer(true);
+        return;
+      }
+
       setProfile(json.profile ?? null);
       setProjects(json.projects ?? []);
       setMilestones(json.milestones ?? []);
@@ -168,15 +562,17 @@ export default function TokenCustomerProfilePage() {
       setError(e instanceof Error ? e.message : "Failed to load");
       setProjects([]); setMilestones([]); setQueries([]); setRepliesByQueryId({});
       setSelectedProjectId(null); setSelectedQueryId(null);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { const u = uid.trim(); if (!u) return; loadAll(u); }, [uid]);
 
-  /* Webflow / embed: localStorage + optional Webflow tab to sync query params (same user as portal uid) */
+  /* Webflow / embed: localStorage + optional Webflow tab to sync query params */
   useEffect(() => {
     const u = uid.trim();
-    if (!u || loading || error) return;
+    if (!u || loading || error || notCustomer) return;
 
     let cancelled = false;
     void (async () => {
@@ -207,16 +603,14 @@ export default function TokenCustomerProfilePage() {
       const syncUrl = `${base}?name=${encodeURIComponent(name != null ? String(name) : "")}&avatar=${encodeURIComponent(avatar != null ? String(avatar) : "")}`;
       window.open(syncUrl, "_blank", "width=1,height=1");
 
-      // eslint-disable-next-line no-console -- intentional sync confirmation for Webflow debugging
+      // eslint-disable-next-line no-console
       console.log("✅ Synced user to Webflow");
     })();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [loading, error, uid]);
+    return () => { cancelled = true; };
+  }, [loading, error, notCustomer, uid]);
 
-  /* Realtime: replies + read + typing (broadcast; portal has no Postgres realtime session) */
+  /* Realtime: replies + read + typing */
   useEffect(() => {
     const qid = selectedQueryId;
     const u = uid.trim();
@@ -249,7 +643,7 @@ export default function TokenCustomerProfilePage() {
     setPeerTyping(false);
   }, [selectedQueryId]);
 
-  /* Mark read for team (seen receipts) while chat is open */
+  /* Mark read while chat is open */
   useEffect(() => {
     const qid = selectedQueryId;
     const u = uid.trim();
@@ -278,16 +672,14 @@ export default function TokenCustomerProfilePage() {
     return () => clearInterval(t);
   }, [selectedQueryId, uid, chatOpen]);
 
-  /* Fallback: if realtime/broadcast is flaky, poll bundle replies while chat is open. */
+  /* Fallback poll while chat is open */
   useEffect(() => {
     const qid = selectedQueryId;
     const u = uid.trim();
     if (!qid || !u || !chatOpen) return;
 
     const iv = setInterval(async () => {
-      // If we got a realtime reply very recently, skip polling.
       if (Date.now() - lastRealtimeReplyAtRef.current < 8_000) return;
-
       try {
         const url = new URL("/api/at/bundle", window.location.origin);
         url.searchParams.set("uid", u);
@@ -297,7 +689,6 @@ export default function TokenCustomerProfilePage() {
         const json = await res.json();
         const incoming = (json.repliesByQueryId?.[qid] ?? []) as QueryReply[];
         if (!incoming.length) return;
-
         setRepliesByQueryId((prev) => {
           const existing = prev[qid] ?? [];
           const map = new Map<string, QueryReply>();
@@ -330,12 +721,15 @@ export default function TokenCustomerProfilePage() {
     }
   }
 
-  // Auto-scroll thread to bottom whenever query or replies change
   useEffect(() => {
     if (threadRef.current) {
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
   }, [selectedQueryId, repliesByQueryId]);
+
+  // ── Early return: not a customer ──────────────────────────────────────────
+  if (notCustomer) return <NotCustomerGate />;
+  // ─────────────────────────────────────────────────────────────────────────
 
   const displayName = profile?.name ?? profile?.full_name ?? "Customer";
   const openQueries = queries.filter((q) => q.status === "open").length;
@@ -569,7 +963,7 @@ export default function TokenCustomerProfilePage() {
       {/* ── OVERLAY ─────────────────────────────────── */}
       <div className={`chat-overlay${chatOpen ? " open" : ""}`} onClick={() => setChatOpen(false)} />
 
-      {/* ── CHAT PANEL: right side, slides bottom → top ── */}
+      {/* ── CHAT PANEL ───────────────────────────────── */}
       <div className={`chat-panel${chatOpen ? " open" : ""}`}>
 
         {/* Header */}
@@ -627,13 +1021,11 @@ export default function TokenCustomerProfilePage() {
           </div>
         )}
 
-        {/* ── THREAD BODY ─ messages grow from bottom ── */}
+        {/* Thread body */}
         {selectedQuery ? (
           <div className="chat-body" ref={threadRef}>
-            {/* Spacer pushes messages to bottom when count is low */}
             <div className="chat-body-spacer" />
 
-            {/* Original query */}
             <div className="msg-row them">
               <div className="msg-av them">C</div>
               <div className="msg-col">
@@ -642,7 +1034,6 @@ export default function TokenCustomerProfilePage() {
               </div>
             </div>
 
-            {/* Replies */}
             {(repliesByQueryId[selectedQuery.id] ?? []).map((reply, i) => {
               const isMe = reply.sender_id === profile?.id;
               const teamRead = selectedQuery.last_read_team_at;
