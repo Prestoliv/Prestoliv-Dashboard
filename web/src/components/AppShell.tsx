@@ -4,43 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { SidebarNav } from "./SidebarNav";
+import { SidebarNav, IconMenu } from "./SidebarNav";
 import { FloatingProjectsChatWidget } from "./FloatingProjectsChatWidget";
 import { supabase } from "@/lib/supabase/client";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
+import {
+  ContactUsNotificationsProvider,
+  useContactUsNotificationsOptional,
+} from "@/lib/contactUs/ContactUsNotifications";
 import type { UserRole } from "@/lib/types";
-
-/* ── Mobile nav icons ────────────────────────────────────────────── */
-const IconGrid = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-    <rect x="1.5" y="1.5" width="6.5" height="6.5" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-    <rect x="10" y="1.5" width="6.5" height="6.5" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-    <rect x="1.5" y="10" width="6.5" height="6.5" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-    <rect x="10" y="10" width="6.5" height="6.5" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-  </svg>
-);
-
-const IconChat = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-    <path d="M15 2H3a1 1 0 00-1 1v9a1 1 0 001 1h5.5l2.5 3 2.5-3H15a1 1 0 001-1V3a1 1 0 00-1-1z"
-      stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-  </svg>
-);
-
-const IconShield = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-    <path d="M9 1.5l6 2.5v5c0 3.5-2.8 6-6 7-3.2-1-6-3.5-6-7V4L9 1.5z"
-      stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-    <path d="M6 9l2 2 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const IconLogout = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M6.5 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-    <path d="M11 11l3-3-3-3M14 8H7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
 
 const LogoMark = () => (
   <div className="h-7 w-7 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -56,19 +28,64 @@ const LogoMark = () => (
   </div>
 );
 
-/* ── Mobile nav link ─────────────────────────────────────────────── */
-function MobileNavLink({ href, label, Icon, active }: {
-  href: string; label: string; Icon: React.FC; active: boolean;
-}) {
+function AppShellInner({ children }: { children: React.ReactNode }) {
+  const { loading, userId, role, name } = useCurrentUserRole();
+  const nav = useMemo(() => ({ role, userId, name }), [role, userId, name]);
+  const contactNotif = useContactUsNotificationsOptional();
+  const contactUsUnseen = contactNotif?.unseenCount ?? 0;
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   return (
-    <Link href={href}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150
-        ${active ? "text-white" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"}`}
-      style={active ? { background: "linear-gradient(135deg,#0891b2,#0d9488)" } : {}}
-    >
-      <Icon />
-      {label}
-    </Link>
+    <div className="min-h-screen bg-[#f0f7f9] flex flex-col lg:flex-row w-full">
+      <SidebarNav
+        role={nav.role as UserRole | null}
+        loading={loading}
+        name={nav.name ?? null}
+        onOpenSupport={() => setSupportOpen(true)}
+        contactUsUnseen={contactUsUnseen}
+        mobileOpen={mobileSidebarOpen}
+        onMobileOpenChange={setMobileSidebarOpen}
+      />
+
+      <div className="flex flex-1 flex-col min-w-0 w-full">
+      <header className="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm">
+        <div
+          className="px-3 sm:px-4 min-h-14 py-2 flex items-center gap-3"
+          style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+        >
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="flex-shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-teal-50 hover:text-teal-800 hover:border-teal-200 transition-colors"
+            aria-label="Open navigation menu"
+            aria-expanded={mobileSidebarOpen}
+          >
+            <IconMenu />
+          </button>
+
+          <Link href="/dashboard" className="flex items-center gap-2 flex-1 min-w-0" onClick={() => setMobileSidebarOpen(false)}>
+            <LogoMark />
+            <span className="text-[13px] font-bold text-slate-700 tracking-wider uppercase truncate">
+              Prestoliv
+            </span>
+          </Link>
+        </div>
+      </header>
+
+      <main className="flex-1 min-w-0 w-full overflow-x-hidden">{children}</main>
+      </div>
+
+      <FloatingProjectsChatWidget />
+
+      <SupportDialog
+        open={supportOpen}
+        onClose={() => setSupportOpen(false)}
+        userId={userId ?? null}
+        name={name}
+        role={role as UserRole | null}
+      />
+    </div>
   );
 }
 
@@ -343,11 +360,9 @@ function SupportDialog({
 
 /* ── Main AppShell ───────────────────────────────────────────────── */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname                          = usePathname();
-  const { loading, userId, role, name }   = useCurrentUserRole();
-  const nav                               = useMemo(() => ({ role, userId, name }), [role, userId, name]);
-  const [signOutBusy, setSignOutBusy]     = useState(false);
-  const [supportOpen, setSupportOpen]     = useState(false);
+  const pathname = usePathname();
+  const { role } = useCurrentUserRole();
+  const nav = useMemo(() => ({ role }), [role]);
 
   /* Standalone routes: no sidebar, no app chrome (embed / public links) */
   if (
@@ -380,71 +395,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f0f7f9]">
-      {/* Desktop sidebar */}
-      <SidebarNav
-        role={nav.role as UserRole | null}
-        loading={loading}
-        name={nav.name ?? null}
-        onOpenSupport={() => setSupportOpen(true)}
-      />
-
-      {/* ── Mobile top bar ── */}
-      <header className="lg:hidden sticky top-0 z-40 h-14 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm">
-        <div className="px-4 h-full flex items-center justify-between gap-3">
-          {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <LogoMark />
-            <span className="text-[13px] font-bold text-slate-700 tracking-wider uppercase">Prestoliv</span>
-          </Link>
-
-          {/* Nav links */}
-          <nav className="flex items-center gap-0.5">
-            <MobileNavLink href="/dashboard" label="Dashboard" Icon={IconGrid} active={pathname === "/dashboard"} />
-            <MobileNavLink href="/queries"   label="Queries"   Icon={IconChat}  active={pathname === "/queries"} />
-            {role === "admin" && (
-              <MobileNavLink href="/admin" label="Admin" Icon={IconShield} active={pathname === "/admin"} />
-            )}
-          </nav>
-
-          {/* Sign out */}
-          {role && (
-            <button
-              disabled={signOutBusy}
-              onClick={async () => {
-                setSignOutBusy(true);
-                try {
-                  await supabase.auth.signOut();
-                  window.location.href = "/login";
-                } finally { setSignOutBusy(false); }
-              }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold
-                         text-slate-500 border border-slate-200 hover:bg-red-50 hover:text-red-600
-                         hover:border-red-200 transition-all duration-150 disabled:opacity-50"
-            >
-              {signOutBusy ? (
-                <span className="h-3 w-3 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin inline-block" />
-              ) : <IconLogout />}
-              Out
-            </button>
-          )}
-        </div>
-      </header>
-
-      {/* ── Page content ── */}
-      <main>
-        {children}
-      </main>
-
-      <FloatingProjectsChatWidget />
-
-      <SupportDialog
-        open={supportOpen}
-        onClose={() => setSupportOpen(false)}
-        userId={userId ?? null}
-        name={name}
-        role={role as UserRole | null}
-      />
-    </div>
+    <ContactUsNotificationsProvider role={nav.role as UserRole | null}>
+      <AppShellInner>{children}</AppShellInner>
+    </ContactUsNotificationsProvider>
   );
 }

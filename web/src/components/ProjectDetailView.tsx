@@ -8,6 +8,8 @@ import { UpdateFeed } from "@/components/UpdateFeed";
 import { MediaUpload } from "@/components/MediaUpload";
 import { QueryThreadUI } from "@/components/QueryThreadUI";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
+import { canPmUseQueryChat } from "@/lib/settings/appSettings";
+import { usePmChatEnabled } from "@/lib/settings/usePmChatEnabled";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import { httpBroadcastQueryThread } from "@/lib/realtime/queryThreadRealtime";
 
@@ -178,10 +180,11 @@ export function ProjectDetailView({
 }) {
 
   const { loading, userId, role } = useCurrentUserRole();
+  const { pmChatEnabled } = usePmChatEnabled();
 
   const canWrite = !readOnly && (role === "pm" || role === "admin");
-  const canReply = !readOnly && (role === "pm" || role === "admin");
-  const canClose = !readOnly && (role === "pm" || role === "admin");
+  const canReply = !readOnly && canPmUseQueryChat(role, pmChatEnabled);
+  const canClose = !readOnly && canPmUseQueryChat(role, pmChatEnabled);
 
   const [project, setProject] = useState<Project | null>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -642,6 +645,11 @@ export function ProjectDetailView({
                   <StatusPill status={selectedQuery.status} />
                 </div>
                 <div className="p-5">
+                  {role === "pm" && !pmChatEnabled && (
+                    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      PM chat is turned off by an administrator. You can read this thread but cannot reply or close it.
+                    </div>
+                  )}
                   <QueryThreadUI
                     query={selectedQuery}
                     replies={selectedReplies}

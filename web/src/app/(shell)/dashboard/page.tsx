@@ -574,7 +574,7 @@ function DashboardInner() {
   const sparkBase = [2, 3, 2, 5, 4, 6, projects.length - 1, projects.length];
 
   return (
-    <div className="min-h-screen bg-[#f0f7f9]">
+    <div className="relative min-h-full bg-[#f0f7f9]">
       {/* Background grid texture */}
       <div className="fixed inset-0 pointer-events-none" style={{
         backgroundImage: `linear-gradient(rgba(14,116,144,.03) 1px,transparent 1px),
@@ -582,13 +582,13 @@ function DashboardInner() {
         backgroundSize: "40px 40px",
       }}/>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-8 space-y-5 sm:space-y-6 w-full">
 
         {/* ─── PAGE HEADER ─── */}
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <div className="flex items-center gap-2.5 mb-1">
-              <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-none"
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mb-1">
+              <h1 className="text-2xl sm:text-[28px] font-bold text-slate-900 tracking-tight leading-none"
                 style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>
                 Dashboard
               </h1>
@@ -596,38 +596,38 @@ function DashboardInner() {
                 {roleLabel}
               </span>
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="text-xs sm:text-sm text-slate-500">
               {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto sm:flex-shrink-0">
             {role === "admin" && (
               <Link href="/admin"
-                className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold
-                           text-white shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
+                className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-1.5 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 text-xs font-semibold
+                           text-white shadow-sm transition-all hover:shadow-md sm:hover:-translate-y-0.5 active:translate-y-0"
                 style={{ background: "linear-gradient(135deg,#0891b2,#0d9488)" }}>
                 <IconAdmin />
-                Manage users
+                <span className="whitespace-nowrap">Manage users</span>
               </Link>
             )}
             {projects.length > 0 && (
               <button
                 type="button"
                 onClick={downloadDashboardCsv}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm hover:border-teal-200 hover:text-teal-700 hover:bg-teal-50 transition-all"
+                className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-1.5 rounded-lg sm:rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm hover:border-teal-200 hover:text-teal-700 hover:bg-teal-50 transition-all"
               >
-                Export stats
+                <span className="whitespace-nowrap">Export stats</span>
               </button>
             )}
             <button
               type="button"
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 shadow-sm hover:border-red-300 hover:text-red-700 hover:bg-red-50 transition-all"
+              className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-1.5 rounded-lg sm:rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 shadow-sm hover:border-red-300 hover:text-red-700 hover:bg-red-50 transition-all"
               title="Sign out of your account"
             >
               <IconLogout />
-              Sign out
+              <span className="whitespace-nowrap">Sign out</span>
             </button>
           </div>
         </div>
@@ -644,7 +644,7 @@ function DashboardInner() {
         )}
 
         {/* ─── STAT CARDS (4 cols) ─── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard label="Total Projects"  value={projects.length} icon={<IconProject />}
             color="teal" sparkData={sparkBase} trend={projects.length > 0 ? `${projects.length} tracked` : undefined} index={0}/>
           <StatCard label="Active Now"      value={activeCount} icon={<IconActive />}

@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase/client";
 import type { Project, Query, QueryReply } from "@/lib/domain";
 import { QueryThreadUI } from "@/components/QueryThreadUI";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
+import { canPmUseQueryChat } from "@/lib/settings/appSettings";
+import { usePmChatEnabled } from "@/lib/settings/usePmChatEnabled";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import { httpBroadcastQueryThread } from "@/lib/realtime/queryThreadRealtime";
 
@@ -49,6 +51,7 @@ function QueryStatusPill({ status }: { status: string }) {
 
 export function FloatingProjectsChatWidget() {
   const { loading, userId, role } = useCurrentUserRole();
+  const { pmChatEnabled } = usePmChatEnabled();
   const [panelOpen, setPanelOpen] = useState(true);
   const [view, setView] = useState<View>("projects");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -67,8 +70,8 @@ export function FloatingProjectsChatWidget() {
   const [newQueryText, setNewQueryText] = useState("");
   const [creatingQuery, setCreatingQuery] = useState(false);
 
-  const canReply = role === "pm" || role === "admin";
-  const canClose = role === "pm" || role === "admin";
+  const canReply = canPmUseQueryChat(role, pmChatEnabled);
+  const canClose = canPmUseQueryChat(role, pmChatEnabled);
   const canCreateQuery = role === "customer" || role === "pm" || role === "admin";
 
   const filteredProjects = useMemo(() => {
@@ -266,7 +269,7 @@ export function FloatingProjectsChatWidget() {
       {/* Panel */}
       {panelOpen && (
         <div
-          className="fixed bottom-5 right-5 z-[95] flex w-[min(100vw-24px,400px)] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl"
+          className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-[95] flex w-[min(calc(100vw-2rem),400px)] max-h-[min(85dvh,calc(100dvh-6rem))] flex-col overflow-hidden rounded-lg sm:rounded-2xl border border-slate-200/90 bg-white shadow-2xl"
           style={{ height: "min(580px, calc(100vh - 40px))" }}
           role="dialog"
           aria-modal="true"
@@ -494,6 +497,12 @@ export function FloatingProjectsChatWidget() {
               {loadingThread ? (
                 <p className="py-6 text-center text-sm text-slate-400">Loading…</p>
               ) : (
+                <>
+                {role === "pm" && !pmChatEnabled && (
+                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    PM chat is disabled by an administrator. You can view messages only.
+                  </div>
+                )}
                 <QueryThreadUI
                   query={selectedQuery}
                   replies={replies}
@@ -536,6 +545,7 @@ export function FloatingProjectsChatWidget() {
                     );
                   }}
                 />
+                </>
               )}
             </div>
           )}

@@ -6,6 +6,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import type { Project, UserRow } from "@/lib/domain";
 import type { UserRole } from "@/lib/types";
 import { fetchPmAndCustomersForAdmin, setPmNameAndRole, updateProfileRole } from "@/lib/api/adminUsers";
+import { fetchPmChatEnabled, setPmChatEnabled } from "@/lib/settings/appSettings";
 import Link from "next/link";
 import { useSWRCache } from "@/lib/cache/useSWRCache";
 
@@ -209,6 +210,9 @@ function AdminInner() {
   const [addingTemplateItem, setAddingTemplateItem]               = useState(false);
 
   const [tab, setTab] = useState<"users" | "templates" | "projects">("users");
+  const [pmChatEnabled, setPmChatEnabledState] = useState(true);
+  const [pmChatLoading, setPmChatLoading] = useState(true);
+  const [pmChatSaving, setPmChatSaving] = useState(false);
   const [allUsersOpen, setAllUsersOpen] = useState(false);
   const [allUsersQuery, setAllUsersQuery] = useState("");
 
@@ -302,6 +306,21 @@ function AdminInner() {
     if (!adminSWR.error) return;
     setError(adminSWR.error instanceof Error ? adminSWR.error.message : "Failed to load admin data");
   }, [adminSWR.error]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const enabled = await fetchPmChatEnabled();
+        if (mounted) setPmChatEnabledState(enabled);
+      } catch (e) {
+        if (mounted) setError(e instanceof Error ? e.message : "Failed to load PM chat setting");
+      } finally {
+        if (mounted) setPmChatLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     if (!templateId) { setTemplateItems([]); return; }
@@ -785,6 +804,54 @@ function AdminInner() {
 
           {/* ── Right sidebar ── */}
           <div className="space-y-5">
+
+            {/* PM chat toggle */}
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/60">
+                <p className="text-sm font-bold text-slate-800">PM chat access</p>
+                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                  When off, project managers can view query threads but cannot send replies or close tickets.
+                </p>
+              </div>
+              <div className="p-5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">
+                    {pmChatEnabled ? "Enabled" : "Disabled"}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {pmChatLoading ? "Loading…" : pmChatEnabled ? "PMs can use chat" : "PMs are read-only in chat"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={pmChatEnabled}
+                  disabled={pmChatLoading || pmChatSaving}
+                  onClick={async () => {
+                    const next = !pmChatEnabled;
+                    setPmChatSaving(true);
+                    try {
+                      await setPmChatEnabled(next);
+                      setPmChatEnabledState(next);
+                      setError(null);
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Failed to update PM chat setting");
+                    } finally {
+                      setPmChatSaving(false);
+                    }
+                  }}
+                  className={`relative h-7 w-12 flex-shrink-0 rounded-full transition-colors duration-200 disabled:opacity-50 ${
+                    pmChatEnabled ? "bg-teal-500" : "bg-slate-300"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200 ${
+                      pmChatEnabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
 
             {/* Overview */}
             <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">

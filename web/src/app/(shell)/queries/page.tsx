@@ -10,6 +10,8 @@ import {
 import { RequireAuth } from "@/components/RequireAuth";
 import { QueryThreadUI } from "@/components/QueryThreadUI";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
+import { canPmUseQueryChat } from "@/lib/settings/appSettings";
+import { usePmChatEnabled } from "@/lib/settings/usePmChatEnabled";
 import { isMissingTableError } from "@/lib/supabase/errors";
 import { useSWRCache } from "@/lib/cache/useSWRCache";
 
@@ -329,6 +331,7 @@ export default function QueriesPage() {
 
 function QueriesInner() {
   const { loading, userId, role } = useCurrentUserRole();
+  const { pmChatEnabled } = usePmChatEnabled();
   const [projects, setProjects]   = useState<Project[]>([]);
   const [queries, setQueries]     = useState<Query[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -342,8 +345,8 @@ function QueriesInner() {
   const typingThrottleRef = useRef(0);
   const lastRealtimeReplyAtRef = useRef(0);
 
-  const canReply       = role === "pm" || role === "admin";
-  const canClose       = role === "pm" || role === "admin";
+  const canReply       = canPmUseQueryChat(role, pmChatEnabled);
+  const canClose       = canPmUseQueryChat(role, pmChatEnabled);
   const canCreateQuery = role === "customer" || role === "pm" || role === "admin";
 
   const openCount   = useMemo(() => queries.filter(q => q.status === "open").length,   [queries]);
@@ -610,7 +613,7 @@ function QueriesInner() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f0f7f9]">
+    <div className="relative min-h-full bg-[#f0f7f9]">
       {/* Grid bg */}
       <div className="fixed inset-0 pointer-events-none" style={{
         backgroundImage: `linear-gradient(rgba(14,116,144,.03) 1px,transparent 1px),
@@ -618,12 +621,12 @@ function QueriesInner() {
         backgroundSize: "40px 40px",
       }}/>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div className="shell-page">
 
         {/* ─── HEADER ─── */}
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-none"
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-[28px] font-bold text-slate-900 tracking-tight leading-none"
               style={{ fontFamily: "'Georgia', serif" }}>
               Queries
             </h1>
@@ -650,7 +653,7 @@ function QueriesInner() {
         )}
 
         {/* ─── STATS (4 cards) ─── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard label="Total Queries" value={queries.length}  icon={<IconQuery/>}  color="teal"/>
           <StatCard label="Open"          value={openCount}       icon={<IconOpen/>}   color="emerald" pct={openPct}/>
           <StatCard label="Closed"        value={closedCount}     icon={<IconClosed/>} color="slate"   pct={closedPct}/>
@@ -770,6 +773,11 @@ function QueriesInner() {
 
                 {/* Thread body */}
                 <div className="flex-1 p-5 overflow-hidden">
+                  {role === "pm" && !pmChatEnabled && (
+                    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      PM chat is turned off by an administrator. You can read threads but cannot send replies or close queries.
+                    </div>
+                  )}
                   <QueryThreadUI
                     query={selectedQuery}
                     replies={replies}
