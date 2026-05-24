@@ -45,6 +45,15 @@ Open the app at `http://localhost:3000`.
 
 ## Deployment
 
+### Vercel
+
+1. Import the GitHub repo in [Vercel](https://vercel.com).
+2. Set **Root Directory** to `web` (Project Settings → General). This is required; it is not set in `vercel.json`.
+3. Add environment variables from `web/.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, etc.).
+4. Deploy — config lives in `web/vercel.json`.
+
+### Render
+
 The repo includes a `render.yaml` for deploying the `web/` service.
 It builds with:
 - `npm ci && npm run build`
