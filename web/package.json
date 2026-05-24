@@ -9,7 +9,8 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "reset:storage": "node scripts/empty-project-media.mjs",
-    "seed:demo": "node scripts/seed-demo-project.mjs"
+    "seed:demo": "node scripts/seed-demo-project.mjs",
+    "set-admin": "node scripts/set-admin.mjs"
   },
   "keywords": [],
   "author": "",

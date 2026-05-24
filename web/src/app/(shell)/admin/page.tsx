@@ -6,6 +6,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import type { Project, UserRow } from "@/lib/domain";
 import type { UserRole } from "@/lib/types";
 import { fetchPmAndCustomersForAdmin, setPmNameAndRole, updateProfileRole } from "@/lib/api/adminUsers";
+import { BOOTSTRAP_ADMIN_EMAIL } from "@/lib/constants/admin";
 import { fetchPmChatEnabled, setPmChatEnabled } from "@/lib/settings/appSettings";
 import Link from "next/link";
 import { useSWRCache } from "@/lib/cache/useSWRCache";
@@ -518,8 +519,8 @@ function AdminInner() {
                       const name  = pmCreateName.trim();
                       const pwd   = pmCreatePassword;
                       if (!email || !pwd) return;
-                      if (email.toLowerCase() === "admin@prestoliv.com") {
-                        setError("Cannot create PM using admin@prestoliv.com.");
+                      if (email.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase()) {
+                        setError(`Cannot create PM using ${BOOTSTRAP_ADMIN_EMAIL}.`);
                         return;
                       }
                       setError(null);

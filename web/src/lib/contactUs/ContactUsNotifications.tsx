@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import type { ContactUsRow } from "@/lib/contactUs";
 import type { UserRole } from "@/lib/types";
@@ -144,7 +145,7 @@ export function ContactUsNotificationsProvider({
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "contact_us" },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<ContactUsRow>) => {
           const row = payload.new as ContactUsRow;
           setUnseenCount((c) => c + 1);
           pushToast(row);

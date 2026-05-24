@@ -6,7 +6,7 @@
 --
 -- Storage: not cleared here. After this runs:  cd web && npm run reset:storage
 --
--- KEEPS: admin role in profiles/users + admin@prestoliv.com in auth.users
+-- KEEPS: admin role in profiles/users + hello@prestoliv.com in auth.users
 --        Does NOT delete public.app_settings.
 --
 -- Paste the entire file and Run once (must be one DO block — do not split).
@@ -39,7 +39,7 @@ begin
   select coalesce(array_agg(a.id), array[]::uuid[])
   into admin_keep
   from auth.users a
-  where lower(a.email) = lower('admin@prestoliv.com');
+  where lower(a.email) = lower('hello@prestoliv.com');
 
   if exists (
     select 1 from information_schema.tables
@@ -73,7 +73,7 @@ begin
 
   if coalesce(array_length(admin_keep, 1), 0) = 0 then
     raise exception
-      'No admin account found to keep. Ensure admin@prestoliv.com exists (or an admin profile) before resetting.';
+      'No admin account found to keep. Ensure hello@prestoliv.com exists (or an admin profile) before resetting.';
   end if;
 
   raise notice 'Keeping % admin user id(s)', coalesce(array_length(admin_keep, 1), 0);

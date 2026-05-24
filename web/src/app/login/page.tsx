@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCurrentUserRole } from "@/lib/auth/useCurrentUserRole";
 import type { UserRole } from "@/lib/types";
 import { z } from "zod";
@@ -24,18 +24,14 @@ const signUpSchema = signInSchema.extend({
 type SignInForm = z.infer<typeof signInSchema>;
 type SignUpForm = z.infer<typeof signUpSchema>;
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams?: { mode?: string };
-}) {
+function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { loading, userId } = useCurrentUserRole();
 
   const initialMode = useMemo(() => {
-    const mode = searchParams?.mode;
-    return mode === "signup" ? "signup" : "signin";
-  }, [searchParams?.mode]);
+    return searchParams.get("mode") === "signup" ? "signup" : "signin";
+  }, [searchParams]);
 
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [error, setError] = useState<string | null>(null);
@@ -384,5 +380,19 @@ function SubmitButton({ busy, label, busyLabel }: { busy: boolean; label: string
         </span>
       ) : label}
     </button>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#f0f7f9] text-sm text-slate-500">
+          Loading…
+        </div>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
   );
 }
