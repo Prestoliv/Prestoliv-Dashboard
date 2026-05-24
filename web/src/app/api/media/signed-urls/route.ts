@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase/serviceServer";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type MediaInput = {
   id: string;
@@ -9,6 +10,51 @@ type MediaInput = {
 
 function unauthorized(msg: string) {
   return NextResponse.json({ error: msg }, { status: 401 });
+}
+
+async function resolveRole(sb: SupabaseClient, uid: string): Promise<string> {
+  const { data: userRow } = await sb.from("users").select("role").eq("id", uid).maybeSingle();
+  if (userRow?.role) return String(userRow.role).toLowerCase();
+  const { data: profileRow } = await sb.from("profiles").select("role").eq("id", uid).maybeSingle();
+  if (profileRow?.role) return String(profileRow.role).toLowerCase();
+  return "customer";
+}
+
+async function canAccessMedia(
+  sb: SupabaseClient,
+  uid: string,
+  item: MediaInput,
+  isAdmin: boolean
+): Promise<boolean> {
+  if (isAdmin) return true;
+
+  const { data: project } = await sb
+    .from("projects")
+    .select("customer_id,pm_id")
+    .eq("id", item.project_id)
+    .maybeSingle();
+
+  if (project) {
+    if (String(project.customer_id) === uid) return true;
+    if (project.pm_id && String(project.pm_id) === uid) return true;
+  }
+
+  const parts = item.url.split("/");
+  const updatesIdx = parts.indexOf("updates");
+  const updateId =
+    updatesIdx >= 0 && parts[updatesIdx + 1] ? parts[updatesIdx + 1] : parts[3] ?? "";
+
+  if (updateId) {
+    const { data: byUpdate } = await sb
+      .from("updates")
+      .select("id")
+      .eq("id", updateId)
+      .eq("created_by", uid)
+      .maybeSingle();
+    if (byUpdate) return true;
+  }
+
+  return false;
 }
 
 export async function POST(req: Request) {
@@ -27,55 +73,14 @@ export async function POST(req: Request) {
     const list = (media ?? []).filter((m) => m?.id && m?.url && m?.project_id);
     if (!list.length) return NextResponse.json({ signedByMediaId: {} });
 
-    // Determine role once (best-effort; we still authorize by membership/created_by below).
-    const { data: userRow } = await sb.from("users").select("role").eq("id", uid).single();
-    const role = String(userRow?.role ?? "customer");
-
+    const role = await resolveRole(sb, uid);
+    const isAdmin = role === "admin";
     const bucket = "project-media";
     const signedByMediaId: Record<string, string> = {};
 
-    const isAdmin = role === "admin";
-
-    // Sign each requested media path.
     for (const item of list) {
-      if (isAdmin) {
-        const { data } = await sb.storage.from(bucket).createSignedUrl(item.url, 60 * 60);
-        if (data?.signedUrl) signedByMediaId[item.id] = data.signedUrl;
-        continue;
-      }
-
-      // Parse update id from the storage path: projects/<project_id>/updates/<update_id>/<file>
-      const parts = item.url.split("/");
-      const updatesIdx = parts.indexOf("updates");
-      const updateId =
-        updatesIdx >= 0 && parts[updatesIdx + 1] ? parts[updatesIdx + 1] : parts[3] ?? "";
-
-      let canByUpdate = false;
-      if (updateId) {
-        const { data: byUpdate } = await sb
-          .from("updates")
-          .select("id")
-          .eq("id", updateId)
-          .eq("created_by", uid)
-          .maybeSingle();
-        canByUpdate = Boolean(byUpdate);
-      }
-
-      if (canByUpdate) {
-        const { data } = await sb.storage.from(bucket).createSignedUrl(item.url, 60 * 60);
-        if (data?.signedUrl) signedByMediaId[item.id] = data.signedUrl;
-        continue;
-      }
-
-      // Customer membership: allow if they own the project.
-      const { data: okProjectRow } = await sb
-        .from("projects")
-        .select("id")
-        .eq("id", item.project_id)
-        .eq("customer_id", uid)
-        .maybeSingle();
-
-      if (!okProjectRow) continue;
+      const allowed = await canAccessMedia(sb, uid, item, isAdmin);
+      if (!allowed) continue;
 
       const { data } = await sb.storage.from(bucket).createSignedUrl(item.url, 60 * 60);
       if (data?.signedUrl) signedByMediaId[item.id] = data.signedUrl;
@@ -89,4 +94,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

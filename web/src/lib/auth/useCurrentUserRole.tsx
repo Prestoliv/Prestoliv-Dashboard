@@ -27,12 +27,25 @@ export function useCurrentUserRole() {
 
         setUserId(session.user.id);
 
-        const { data: row, error: roleError } = await supabase
+        let row: { role?: string; name?: string | null } | null = null;
+        const usersRes = await supabase
           .from("users")
           .select("role,name")
           .eq("id", session.user.id)
-          .single();
-        if (roleError) throw roleError;
+          .maybeSingle();
+        if (!usersRes.error && usersRes.data) {
+          row = usersRes.data;
+        } else {
+          const profilesRes = await supabase
+            .from("profiles")
+            .select("role,name,full_name")
+            .eq("id", session.user.id)
+            .maybeSingle();
+          if (!profilesRes.error && profilesRes.data) {
+            const p = profilesRes.data;
+            row = { role: p.role, name: p.name ?? p.full_name ?? null };
+          }
+        }
         if (!mounted) return;
 
         setRole((row?.role as UserRole) ?? null);

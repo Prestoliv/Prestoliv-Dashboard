@@ -18,6 +18,18 @@ const IconGrid = () => (
   </svg>
 );
 
+const IconProject = () => (
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+    <path
+      d="M2.5 5.5l5.5-3 5.5 3v7.5H2.5V5.5z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+    <path d="M6.5 8h3M6.5 10.5h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
 const IconChat = () => (
   <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
     <path d="M13.5 2.5H2.5C2 2.5 1.5 3 1.5 3.5v7c0 .5.5 1 1 1H5l2 2.5L9 11.5h4.5c.5 0 1-.5 1-1v-7c0-.5-.5-1-1-1z"
@@ -236,18 +248,24 @@ function SidebarPanel({
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden">
         <SectionLabel label="Menu" collapsed={collapsed} />
         <div className="pt-1 space-y-0.5">
-          {navItems.map(({ href, label, Icon, badge }) => (
-            <NavItem
-              key={href}
-              href={href}
-              label={label}
-              Icon={Icon}
-              badge={badge}
-              active={pathname === href}
-              collapsed={collapsed}
-              onNavigate={afterNav}
-            />
-          ))}
+          {navItems.map(({ href, label, Icon, badge }) => {
+            const active =
+              href === "/projects"
+                ? pathname === "/projects" || pathname.startsWith("/projects/")
+                : pathname === href;
+            return (
+              <NavItem
+                key={href}
+                href={href}
+                label={label}
+                Icon={Icon}
+                badge={badge}
+                active={active}
+                collapsed={collapsed}
+                onNavigate={afterNav}
+              />
+            );
+          })}
         </div>
       </nav>
 
@@ -451,6 +469,7 @@ export function SidebarNav({
 
   const baseNav: NavItemDef[] = [
     { href: "/dashboard", label: "Dashboard", Icon: IconGrid },
+    { href: "/projects", label: "Projects", Icon: IconProject },
     { href: "/queries", label: "Queries", Icon: IconChat },
   ];
   const navItems: NavItemDef[] =

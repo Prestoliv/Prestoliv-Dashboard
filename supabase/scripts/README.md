@@ -38,6 +38,23 @@ This removes all files in the `project-media` bucket via the Storage API.
 
 Alternatively: Dashboard → **Storage** → `project-media` → select all → delete.
 
+### Step 3 — seed demo users & project (optional)
+
+```bash
+cd web && npm run seed:demo
+```
+
+Creates:
+
+| Account | Role |
+|---------|------|
+| `vivek@dzynd.co` | customer |
+| `sharun@prestoliv.com` | PM |
+
+Plus an **active** project assigned to both, with 2 images and 1 video on the update feed.
+
+Default password: `PrestolivDemo2026!` (override with `SEED_DEFAULT_PASSWORD` in `.env.local`).
+
 ---
 
 ### Notes
