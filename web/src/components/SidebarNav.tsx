@@ -53,6 +53,13 @@ const IconMail = () => (
   </svg>
 );
 
+const IconCalculator = () => (
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+    <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M5 4.5h6M5 7h2M9 7h2M5 9.5h2M9 9.5h2M5 12h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+  </svg>
+);
+
 const IconLogout = () => (
   <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
     <path d="M5.5 12H3a1 1 0 01-1-1V3a1 1 0 011-1h2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -477,6 +484,7 @@ export function SidebarNav({
       ? [
           ...baseNav,
           { href: "/admin/contact-us", label: "Contact Us", Icon: IconMail, badge: contactUsUnseen },
+          { href: "/admin/calculator-config", label: "Calculator Config", Icon: IconCalculator },
           { href: "/admin", label: "Admin", Icon: IconShield },
         ]
       : baseNav;
