@@ -60,6 +60,17 @@ const IconCalculator = () => (
   </svg>
 );
 
+const IconPhone = () => (
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+    <path
+      d="M3.5 2.5h2.8l1.2 2.8-1.5 1.1c.7 1.4 1.8 2.5 3.2 3.2l1.1-1.5 2.8 1.2v2.8c0 .6-.5 1.1-1.1 1.1C6.8 13.2 2.8 9.2 2.5 4.6c0-.6.5-1.1 1-1.1z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const IconLogout = () => (
   <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
     <path d="M5.5 12H3a1 1 0 01-1-1V3a1 1 0 011-1h2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -484,6 +495,7 @@ export function SidebarNav({
       ? [
           ...baseNav,
           { href: "/admin/contact-us", label: "Contact Us", Icon: IconMail, badge: contactUsUnseen },
+          { href: "/admin/contact-settings", label: "Website Contact", Icon: IconPhone },
           { href: "/admin/calculator-config", label: "Calculator Config", Icon: IconCalculator },
           { href: "/admin", label: "Admin", Icon: IconShield },
         ]
